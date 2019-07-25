@@ -7,9 +7,16 @@ import (
 
 func CompressTicks(ticks []uint64) []byte {
 
-	bw := newBWriter()
+	if len(ticks) == 0 {
+		return nil
+	}
 
+	bw := newBWriter()
 	bw.writeBits(ticks[0], 64)
+
+	if len(ticks) == 1 {
+		return bw.stream
+	}
 
 	tDelta := ticks[1] - ticks[0]
 	bw.writeBits(tDelta, 64)
@@ -40,6 +47,10 @@ func CompressTicks(ticks []uint64) []byte {
 }
 
 func DecompressTicks(bytes []byte, count int) ([]uint64, error) {
+	if count == 0 {
+		return nil, nil
+	}
+
 	br := newBReader(bytes)
 
 	ticks := make([]uint64, count)
@@ -48,6 +59,10 @@ func DecompressTicks(bytes []byte, count int) ([]uint64, error) {
 		return nil, err
 	}
 	ticks[0] = t
+
+	if count == 1 {
+		return ticks, nil
+	}
 
 	tDelta, err := br.readBits(64)
 	if err != nil {
