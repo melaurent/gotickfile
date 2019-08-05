@@ -2,7 +2,7 @@ package gotickfile
 
 import (
 	"fmt"
-	"os"
+	"github.com/spf13/afero"
 	"reflect"
 	"testing"
 )
@@ -23,10 +23,20 @@ var data = Data{
 	Prib: 2,
 }
 
+var fs = afero.NewMemMapFs()
+
+var goldenFs = afero.NewOsFs()
 
 func TestCreate(t *testing.T) {
+	//handle := NewOSFileHandle("test.tick")
+	//handle := NewMemFileHandle()
+	file, err := fs.Create("test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
+
 	tf, err := Create(
-		"test.tick",
+		file,
 		WithDataType(reflect.TypeOf(Data{})),
 		WithContentDescription("prices of acme at NYSE"),
 		WithNameValues(map[string]interface{} {
@@ -73,13 +83,22 @@ func TestCreate(t *testing.T) {
 		t.Fatalf("error closing tickfile: %v", err)
 	}
 
-	tf, err = OpenRead("test.tick", reflect.TypeOf(Data{}))
+	file, err = fs.Open("test.tick")
+	if err != nil {
+		t.Fatalf("error opening file: %v", err)
+	}
+	tf, err = OpenRead(file, reflect.TypeOf(Data{}))
 	if err != nil {
 		t.Fatalf("error opening tickfile: %v", err)
 	}
 
+	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
 	// Comparing with fixture
-	goldTf, err := OpenRead("test-fixtures/test.tick", reflect.TypeOf(Data{}))
+	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	if err != nil {
+		t.Fatalf("error opening file: %v", err)
+	}
+	goldTf, err := OpenRead(goldenFile, reflect.TypeOf(Data{}))
 	if err != nil {
 		t.Fatalf("error opening golden tickfile: %v", err)
 	}
@@ -112,16 +131,19 @@ func TestCreate(t *testing.T) {
 			tf.ticks)
 	}
 
-	err = os.Remove("test.tick")
-	if err != nil {
+	if err = fs.Remove("test.tick"); err != nil {
 		t.Fatalf("error deleting tickfile: %v", err)
 	}
 }
 
 func TestBasicKind(t *testing.T) {
 	var val float64 = 0.8
+	file, err := fs.Create("test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
 	tf, err := Create(
-		"test.tick",
+		file,
 		WithBasicType(reflect.TypeOf(val)),
 		WithContentDescription("prices of acme at NYSE"),
 		WithNameValues(map[string]interface{} {
@@ -148,19 +170,33 @@ func TestBasicKind(t *testing.T) {
 }
 
 func TestOpenWrite(t *testing.T) {
-	tf, err := OpenWrite("test-fixtures/test.tick", reflect.TypeOf(Data{}))
+	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	if err != nil {
+		t.Fatalf("error opening file: %v", err)
+	}
+	tf, err := OpenWrite(goldenFile, reflect.TypeOf(Data{}))
 	if err != nil {
 		t.Fatalf("error opening tickfile: %v", err)
 	}
-	_, _, err = tf.Read(5)
+	tick, res, err := tf.Read(0)
 	if err != nil {
 		t.Fatalf("error reading data: %v", err)
+	}
+	resData := res.(*Data)
+	if tick != 0 || !reflect.DeepEqual(*resData, data) {
+		fmt.Println(res, data)
+		t.Fatalf("got a different read than expected")
 	}
 }
 
 func TestCreate2(t *testing.T) {
+	//handle := NewOSFileHandle("test.tick")
+	file, err := fs.Create("test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
 	tf, err := Create(
-		"test.tick",
+		file,
 		WithDataType(reflect.TypeOf(Data{})),
 		WithContentDescription("prices of acme at NYSE"),
 		WithNameValues(map[string]interface{} {
@@ -214,8 +250,11 @@ func TestCreate2(t *testing.T) {
 	}
 
 	// Now read
-
-	tf, err = OpenRead("test.tick", reflect.TypeOf(Data{}))
+	file, err = fs.Open("test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
+	tf, err = OpenRead(file, reflect.TypeOf(Data{}))
 	if err != nil {
 		t.Fatalf("error opening tickfile: %v", err)
 	}
@@ -225,14 +264,18 @@ func TestCreate2(t *testing.T) {
 		t.Fatalf("got a different read than expected")
 	}
 
-	err = os.Remove("test.tick")
-	if err != nil {
+	if err = fs.Remove("test.tick"); err != nil {
 		t.Fatalf("error deleting tickfile: %v", err)
 	}
 }
 
 func TestRead(t *testing.T) {
-	tf, err := OpenRead("test-fixtures/test.tick", reflect.TypeOf(Data{}))
+	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
+	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
+	tf, err := OpenRead(goldenFile, reflect.TypeOf(Data{}))
 	if err != nil {
 		t.Fatalf("error opening tickfile: %v", err)
 	}

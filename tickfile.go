@@ -3,11 +3,20 @@ package gotickfile
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/melaurent/gotickfile/mmap"
-	"os"
+	"github.com/spf13/afero"
 	"reflect"
+	"syscall"
 	"unsafe"
 )
+
+
+// Should tickfile have a file handle ?
+// Because we can map file to memory, or if we open in readonly mode
+// we can give a reader over the in memory buffer instead.
+// the problem is that the reader will do a copy.
+// we want to avoid copy. So tickfile should have direct access
+// to the file content so it can return pointer to delta without copy
+// So file handle and file system
 
 var nativeEndian binary.ByteOrder
 
@@ -21,7 +30,7 @@ func init() {
 	case [2]byte{0xAB, 0xCD}:
 		nativeEndian = binary.BigEndian
 	default:
-		panic("Could not determine native endianness.")
+		panic("could not determine native endianness.")
 	}
 }
 
@@ -33,10 +42,9 @@ type Header struct {
 }
 
 type TickFile struct {
-	mode                      int
-	fileName                  string
-	file                      *os.File
-	mmap                      *mmap.MMapReader
+	file                      afero.File
+	write                     bool
+	mmap                      []byte
 	buffer                    []byte
 	bufferIdx                 int
 	dataType                  reflect.Type
@@ -49,18 +57,20 @@ type TickFile struct {
 	itemCount                 int
 }
 
-func Create(fileName string, configs ...TickFileConfig) (*TickFile, error) {
-	f, err := os.Create(fileName)
-	if err != nil {
-		return nil, err
+func Create(file afero.File, configs ...TickFileConfig) (*TickFile, error) {
+	var tf *TickFile
+
+	if err := file.Truncate(0); err != nil {
+		return nil, fmt.Errorf("error creating file: %v", err)
 	}
-	tf := &TickFile{
-		mode:      os.O_RDWR,
-		fileName:  fileName,
-		file:      f,
+
+	tf = &TickFile{
+		file:      file,
+		write:     true,
 		buffer:    make([]byte, 4096),
 		bufferIdx: 0,
 	}
+
 	for _, config := range configs {
 		config(tf)
 	}
@@ -69,7 +79,7 @@ func Create(fileName string, configs ...TickFileConfig) (*TickFile, error) {
 	tf.header.MagicValue = 0x0d0e0a0402080500
 
 	if tf.itemSection != nil {
-		err = tf.checkDataType()
+		err := tf.checkDataType()
 		if err != nil { return nil, err }
 
 		tf.header.SectionCount += 1
@@ -117,8 +127,7 @@ func Create(fileName string, configs ...TickFileConfig) (*TickFile, error) {
 	tf.header.ItemStart += paddingBytes
 	tf.header.ItemEnd = tf.header.ItemStart
 
-	err = tf.writeHeader()
-	if err != nil {
+	if err := tf.writeHeader(); err != nil {
 		return nil, err
 	}
 
@@ -143,10 +152,6 @@ func (tf *TickFile) GetTags() map[string]string {
 	}
 }
 
-func (tf *TickFile) GetFileName() string {
-	return tf.fileName
-}
-
 func (tf *TickFile) computeItemCount() int {
 	areaSize := tf.header.ItemEnd - tf.header.ItemStart
 	buffSize := int64(tf.bufferIdx)
@@ -159,41 +164,44 @@ func (tf *TickFile) ItemCount() int {
 	return tf.itemCount
 }
 
-func OpenWrite(fileName string, dataType reflect.Type) (*TickFile, error) {
-	f, err := os.OpenFile(fileName, os.O_RDWR, 0666)
-	if err != nil { return nil, err }
+func OpenWrite(file afero.File, dataType reflect.Type) (*TickFile, error) {
 
 	tf := &TickFile{
-		mode:      os.O_RDWR,
-		fileName:  fileName,
-		file:      f,
+		file:      file,
+		write:     true,
 		dataType:  dataType,
 		buffer:    make([]byte, 1024),
 		bufferIdx: 0,
 	}
 
-	err = tf.readHeader()
-	if err != nil { return nil, err }
+
+	if err := tf.readHeader(); err != nil {
+		return nil, err
+	}
 
 	tf.itemCount = tf.computeItemCount()
 
-	err = tf.readTicks()
-	if err != nil { return nil, err }
+	if err := tf.readTicks(); err != nil {
+		return nil, err
+	}
 
-	err = tf.checkDataType()
-	if err != nil { return nil, err }
+	if err := tf.checkDataType(); err != nil {
+		return nil, err
+	}
 
-	err = tf.seekItemEnd()
-	if err != nil { return nil, err }
+	if _, err := tf.file.Seek(tf.header.ItemStart, 0); err != nil {
+		return nil, err
+	}
 
 	return tf, nil
 }
 
 // ticks: ticks since epoch
 func (tf *TickFile) Write(tick uint64, val interface{}) error {
-	if tf.mode == os.O_RDONLY {
-		return fmt.Errorf("writing in reading mode not supported")
+	if !tf.write {
+		return fmt.Errorf("writing in read only tickfile")
 	}
+
 	if tf.itemSection == nil {
 		return fmt.Errorf("this file has no item section")
 	}
@@ -231,51 +239,48 @@ func (tf *TickFile) Write(tick uint64, val interface{}) error {
 	return nil
 }
 
-func OpenRead(fileName string, dataType reflect.Type) (*TickFile, error) {
-	f, err := os.Open(fileName)
-	if err != nil {
-		return nil, err
-	}
+func OpenRead(file afero.File, dataType reflect.Type) (*TickFile, error) {
+
 	tf := &TickFile{
-		mode: os.O_RDONLY,
-		fileName: fileName,
-		file: f,
+		file:     file,
+		write:    false,
 		dataType: dataType,
 	}
 
-	err = tf.readHeader()
-	if err != nil { return nil, err }
+	if err := tf.readHeader(); err != nil {
+		return nil, fmt.Errorf("error reading file header: %v", err)
+	}
 
-	err = tf.checkDataType()
-	if err != nil { return nil, err }
+	if err := tf.checkDataType(); err != nil {
+		return nil, fmt.Errorf("error checking data type: %v", err)
+	}
 
 	tf.itemCount = tf.computeItemCount()
 
-	tf.mmap, err = tf.openReadableMapping()
-	if err != nil {
-		return nil, fmt.Errorf("error opening file: %v", err)
+	if tf.file.CanMmap() {
+		mmap, err := tf.openReadableMapping()
+		if err != nil {
+			return nil, fmt.Errorf("error opening readable mapping: %v", err)
+		}
+		tf.mmap = mmap
 	}
 
-	err = tf.readTicks()
-	if err != nil { return nil, err }
+	if err := tf.readTicks(); err != nil {
+		return nil, fmt.Errorf("error reading ticks: %v", err)
+	}
 
-	_, err = tf.file.Seek(tf.header.ItemStart, 0)
-	if err != nil {
-		return nil, err
+	if _, err := tf.file.Seek(tf.header.ItemStart, 0); err != nil {
+		return nil, fmt.Errorf("error seeking to first item: %v", err)
+
 	}
 
 	return tf, nil
 }
 
-func OpenHeader(fileName string) (*TickFile, error) {
-	f, err := os.Open(fileName)
-	if err != nil {
-		return nil, err
-	}
+func OpenHeader(file afero.File) (*TickFile, error) {
+
 	tf := &TickFile{
-		mode: os.O_RDONLY,
-		fileName: fileName,
-		file: f,
+		file:      file,
 		bufferIdx: 0,
 	}
 
@@ -288,10 +293,8 @@ func OpenHeader(fileName string) (*TickFile, error) {
 	return tf, nil
 }
 
-func (tf *TickFile) openReadableMapping() (*mmap.MMapReader, error) {
-	if tf.mode == os.O_RDWR {
-		return nil, fmt.Errorf("memory mapping in write mode not supported")
-	}
+
+func (tf *TickFile) openReadableMapping() ([]byte, error) {
 	if tf.mmap != nil {
 		return tf.mmap, nil
 	}
@@ -301,11 +304,33 @@ func (tf *TickFile) openReadableMapping() (*mmap.MMapReader, error) {
 	if tf.header.ItemStart == tf.header.ItemEnd {
 		return nil, fmt.Errorf("error opening readable mapping: no data")
 	}
-	reader, err := mmap.Open(
-		tf.file,
-		tf.header.ItemStart,
-		int64(tf.itemSection.Info.ItemSize))
-	return reader, err
+
+	fi, err := tf.file.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	fSize := fi.Size()
+	if fSize == 0 {
+		return nil, nil
+	}
+	if fSize < 0 {
+		return nil, fmt.Errorf("mmap: file has negative size")
+	}
+	if fSize != int64(int(fSize)) {
+		return nil, fmt.Errorf("mmap: file is too large")
+	}
+
+	data, err := tf.file.Mmap(
+		0,
+		int(fSize),
+		syscall.PROT_READ,
+		syscall.MAP_SHARED)
+	if err != nil {
+		return nil, fmt.Errorf("error opening mmap: %v", err)
+	}
+
+	return data, nil
 }
 
 /*
@@ -332,9 +357,10 @@ func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
 	if idx >= tf.itemCount {
 		return 0, nil, fmt.Errorf("read out of range")
 	}
-	if tf.mode == os.O_RDONLY {
+	if tf.mmap != nil {
 		// Easy, use mmap
-		ptr := tf.mmap.GetItem(0)
+		mmapIdx := tf.header.ItemStart + (int64(idx) * int64(tf.itemSection.Info.ItemSize))
+		ptr := unsafe.Pointer(&tf.mmap[mmapIdx])
 		val := reflect.NewAt(tf.dataType, ptr)
 		return tf.ticks[idx], val.Interface(), nil
 	} else {
@@ -354,22 +380,25 @@ func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
 
 		if idx >= itemsInFile {
 			// Read from buffer
+
 			buffIdx := (idx - itemsInFile) * int(tf.itemSection.Info.ItemSize)
 			for i := 0; i < len(b); i++ {
 				b[i] = tf.buffer[buffIdx + i]
 			}
 		} else {
 			// Read from file
-			if err := tf.seekItem(int64(idx)); err != nil {
+
+			pointer := tf.header.ItemStart + int64(idx) * int64(tf.itemSection.Info.ItemSize)
+
+			if _, err := tf.file.Seek(pointer, 0); err != nil {
 				return 0, nil, err
 			}
 
-			_, err := tf.file.Read(b)
-			if err != nil {
+			if _, err := tf.file.Read(b); err != nil {
 				return 0, nil, err
 			}
 			// Go back to item end for next writings
-			if err = tf.seekItemEnd(); err != nil {
+			if _, err := tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
 				return 0, nil, err
 			}
 		}
@@ -378,25 +407,12 @@ func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
 	}
 }
 
-func (tf *TickFile) seekItem(idx int64) error {
-	if tf.itemSection == nil {
-		return fmt.Errorf("no item section defined, cannot seek on item size")
-	}
-	_, err := tf.file.Seek(tf.header.ItemStart + idx * int64(tf.itemSection.Info.ItemSize), 0)
-	return err
-}
-
-func (tf *TickFile) seekItemEnd() error {
-	_, err := tf.file.Seek(tf.header.ItemEnd, 0)
-	return err
-}
-
 
 func (tf *TickFile) Flush() error {
-	if tf.mode == os.O_RDONLY {
-		return fmt.Errorf("writing in read only")
+	// TODO check file mode
+	if tf.file == nil {
+		return fmt.Errorf("teafile not open")
 	}
-
 	_, err := tf.file.Write(tf.buffer[0:tf.bufferIdx])
 	if err != nil {
 		return err
@@ -414,7 +430,7 @@ func (tf *TickFile) Flush() error {
 	}
 
 	// Go back to end of items after writing ticks
-	if err := tf.seekItemEnd(); err != nil {
+	if _, err = tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
 		return err
 	}
 
@@ -424,12 +440,14 @@ func (tf *TickFile) Flush() error {
 
 
 func (tf *TickFile) Close() error {
-	if tf.mode == os.O_RDWR {
-		if err := tf.Flush(); err != nil {
-			return err
+	if tf.file != nil {
+		if tf.write {
+			if err := tf.Flush(); err != nil {
+				return err
+			}
 		}
 	}
-	return tf.file.Close()
+	return nil
 }
 
 func (tf *TickFile) readHeader() error {
@@ -554,16 +572,6 @@ func (tf *TickFile) writeHeader() error {
 		currOffset += 1
 	}
 
-	position, err := tf.file.Seek(0, 1)
-	if err != nil { return err }
-
-	bytesToSkip := tf.header.ItemStart - position
-	_, err = tf.file.Seek(bytesToSkip, 1)
-	if err != nil { return err }
-
-	position, err = tf.file.Seek(0, 1)
-	if err != nil { return err }
-
 	return nil
 }
 
@@ -571,24 +579,26 @@ func (tf *TickFile) readTicks() error {
 	var data []byte
 
 	if tf.mmap == nil {
-		if err := tf.seekItemEnd(); err != nil {
+		if _, err := tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
 			return err
 		}
-		fStats, err := tf.file.Stat()
+		fstat, err := tf.file.Stat()
 		if err != nil {
-			return err
+			return fmt.Errorf("error getting file info: %v", err)
 		}
 
-		ticksSize := fStats.Size() - tf.header.ItemEnd
+		size := fstat.Size()
+		ticksSize := size - tf.header.ItemEnd
 		data = make([]byte, ticksSize)
 		if _, err := tf.file.Read(data); err != nil {
 			return err
 		}
 	} else {
-		ticksSize := int(tf.mmap.GetSize()) - tf.itemCount * int(tf.itemSection.Info.ItemSize)
 
+		ticksSize := len(tf.mmap) - tf.itemCount * int(tf.itemSection.Info.ItemSize)
+		mmapIdx := tf.header.ItemStart + (int64(tf.itemCount) * int64(tf.itemSection.Info.ItemSize))
 		sh := &reflect.SliceHeader{
-			Data: uintptr(tf.mmap.GetItem(tf.itemCount)),
+			Data: uintptr(unsafe.Pointer(&tf.mmap[mmapIdx])),
 			Len:  ticksSize,
 			Cap:  ticksSize,
 		}
@@ -604,13 +614,11 @@ func (tf *TickFile) readTicks() error {
 }
 
 func (tf *TickFile) writeTicks() error {
-	err := tf.seekItemEnd()
-	if err != nil {
+	if _, err := tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
 		return err
 	}
 	data := CompressTicks(tf.ticks)
-	_, err = tf.file.Write(data)
-	if err != nil {
+	if _, err := tf.file.Write(data); err != nil {
 		return err
 	}
 	return nil

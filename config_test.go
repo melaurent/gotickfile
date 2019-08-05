@@ -2,7 +2,6 @@ package gotickfile
 
 import (
 	uuid "github.com/satori/go.uuid"
-	"os"
 	"reflect"
 	"testing"
 )
@@ -31,8 +30,12 @@ func TestWithDataType(t *testing.T) {
 			{Index: 4, Type: 8, Offset: 32, Name: "Prib"},
 		},
 	}
+	file, err := fs.Create("test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
 	tf, err := Create(
-		"test.tick",
+		file,
 		WithDataType(reflect.TypeOf(Data{})))
 	if err != nil {
 		t.Fatalf("error creating TeaFile: %v", err)
@@ -40,8 +43,7 @@ func TestWithDataType(t *testing.T) {
 	if !reflect.DeepEqual(*tf.itemSection, fixture) {
 		t.Fatalf("got different content description")
 	}
-	err = os.Remove("test.tick")
-	if err != nil {
+	if err := fs.Remove("test.tick"); err != nil {
 		t.Fatalf("error deleting TeaFile: %v", err)
 	}
 }
@@ -51,8 +53,12 @@ func TestWithContentDescription(t *testing.T) {
 	fixture := ContentDescriptionSection{
 		ContentDescription: "prices of acme at NYSE",
 	}
+	file, err := fs.Create("test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
 	tf, err := Create(
-		"test.tick",
+		file,
 		WithContentDescription("prices of acme at NYSE"))
 	if err != nil {
 		t.Fatalf("error creating TeaFile: %v", err)
@@ -60,15 +66,14 @@ func TestWithContentDescription(t *testing.T) {
 	if !reflect.DeepEqual(*tf.contentDescriptionSection, fixture) {
 		t.Fatalf("got different content description")
 	}
-	err = os.Remove("test.tick")
-	if err != nil {
+	if err := fs.Remove("test.tick"); err != nil {
 		t.Fatalf("error deleting TeaFile: %v", err)
 	}
 }
 
 func TestWithNameValues(t *testing.T) {
 	// Test that a config creates the correct name value section
-	id, _ := uuid.NewV1()
+	id := uuid.NewV1()
 	fixture := NameValueSection{
 		NameValues: map[string]interface{} {
 			"a": int32(1),
@@ -78,8 +83,12 @@ func TestWithNameValues(t *testing.T) {
 			"e": uint64(100),
 		},
 	}
+	file, err := fs.Create("test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
 	tf, err := Create(
-		"test.tick",
+		file,
 		WithNameValues(map[string]interface{}{
 			"a": int32(1),
 			"b": "c",
@@ -93,7 +102,7 @@ func TestWithNameValues(t *testing.T) {
 	if !reflect.DeepEqual(*tf.nameValueSection, fixture) {
 		t.Fatalf("got different content description")
 	}
-	err = os.Remove("test.tick")
+	err = fs.Remove("test.tick")
 	if err != nil {
 		t.Fatalf("error deleting TeaFile: %v", err)
 	}
