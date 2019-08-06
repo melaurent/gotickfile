@@ -397,9 +397,12 @@ func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
 			if _, err := tf.file.Read(b); err != nil {
 				return 0, nil, err
 			}
-			// Go back to item end for next writings
-			if _, err := tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
-				return 0, nil, err
+
+			if tf.write {
+				// Go back to item end for next writings
+				if _, err := tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
+					return 0, nil, err
+				}
 			}
 		}
 
