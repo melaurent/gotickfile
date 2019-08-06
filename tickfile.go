@@ -389,7 +389,6 @@ func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
 			// Read from file
 
 			pointer := tf.header.ItemStart + int64(idx) * int64(tf.itemSection.Info.ItemSize)
-
 			if _, err := tf.file.Seek(pointer, 0); err != nil {
 				return 0, nil, err
 			}
