@@ -9,7 +9,6 @@ import (
 	"unsafe"
 )
 
-
 // Should tickfile have a file handle ?
 // Because we can map file to memory, or if we open in readonly mode
 // we can give a reader over the in memory buffer instead.
@@ -80,7 +79,9 @@ func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 
 	if tf.itemSection != nil {
 		err := tf.checkDataType()
-		if err != nil { return nil, err }
+		if err != nil {
+			return nil, err
+		}
 
 		tf.header.SectionCount += 1
 		// Section ID
@@ -122,7 +123,7 @@ func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 	}
 
 	// Align ItemStart on 8 bytes
-	paddingBytes := 8 - tf.header.ItemStart % 8
+	paddingBytes := 8 - tf.header.ItemStart%8
 
 	tf.header.ItemStart += paddingBytes
 	tf.header.ItemEnd = tf.header.ItemStart
@@ -174,7 +175,6 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		bufferIdx: 0,
 	}
 
-
 	if err := tf.readHeader(); err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ func (tf *TickFile) Write(tick uint64, val interface{}) error {
 		cap  int
 	}{ptr, length, length}
 	b := *(*[]byte)(unsafe.Pointer(&sl))
-	if tf.bufferIdx + length > len(tf.buffer) {
+	if tf.bufferIdx+length > len(tf.buffer) {
 		err := tf.Flush()
 		if err != nil {
 			return err
@@ -293,14 +293,15 @@ func OpenHeader(file kafero.File) (*TickFile, error) {
 	return tf, nil
 }
 
-
 func (tf *TickFile) openReadableMapping() ([]byte, error) {
 	if tf.mmap != nil {
 		return tf.mmap, nil
 	}
 
 	_, err := tf.file.Seek(0, 0)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	if tf.header.ItemStart == tf.header.ItemEnd {
 		return nil, fmt.Errorf("error opening readable mapping: no data")
 	}
@@ -350,8 +351,7 @@ func (tf *TickFile) Read() (interface{}, error) {
 
 	return val, err
 }
- */
-
+*/
 
 func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
 	if idx >= tf.itemCount {
@@ -383,12 +383,12 @@ func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
 
 			buffIdx := (idx - itemsInFile) * int(tf.itemSection.Info.ItemSize)
 			for i := 0; i < len(b); i++ {
-				b[i] = tf.buffer[buffIdx + i]
+				b[i] = tf.buffer[buffIdx+i]
 			}
 		} else {
 			// Read from file
 
-			pointer := tf.header.ItemStart + int64(idx) * int64(tf.itemSection.Info.ItemSize)
+			pointer := tf.header.ItemStart + int64(idx)*int64(tf.itemSection.Info.ItemSize)
 			if _, err := tf.file.Seek(pointer, 0); err != nil {
 				return 0, nil, err
 			}
@@ -412,6 +412,9 @@ func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
 func (tf *TickFile) Sync() error {
 	if tf.file == nil {
 		return fmt.Errorf("teafile not open")
+	}
+	if !tf.write {
+		return fmt.Errorf("error syncing file: file isn't in write mode")
 	}
 	if err := tf.Flush(); err != nil {
 		return fmt.Errorf("error flushing buffer in file: %v", err)
@@ -452,11 +455,10 @@ func (tf *TickFile) Flush() error {
 	return nil
 }
 
-
 func (tf *TickFile) Close() error {
 	if tf.file != nil {
 		if tf.write {
-			if err := tf.Flush(); err != nil {
+			if err := tf.Sync(); err != nil {
 				return err
 			}
 		}
@@ -466,7 +468,9 @@ func (tf *TickFile) Close() error {
 
 func (tf *TickFile) readHeader() error {
 	err := binary.Read(tf.file, nativeEndian, &tf.header)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	if tf.header.MagicValue != 0x0d0e0a0402080500 {
 		return fmt.Errorf("byteordermark mismatch")
 	}
@@ -474,41 +478,57 @@ func (tf *TickFile) readHeader() error {
 	for i := 0; i < int(tf.header.SectionCount); i++ {
 		var sectionID int32
 		err = binary.Read(tf.file, nativeEndian, &sectionID)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		var nextSectionOffset int32
 		err = binary.Read(tf.file, nativeEndian, &nextSectionOffset)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 
 		beforeSection, err := tf.file.Seek(0, 1)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 
 		switch sectionID {
 		case ITEM_SECTION_ID:
 			tf.itemSection = &ItemSection{}
 			err = tf.itemSection.Read(tf.file, nativeEndian)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 
 		case CONTENT_DESCRIPTION_SECTION_ID:
 			tf.contentDescriptionSection = &ContentDescriptionSection{}
 			err = tf.contentDescriptionSection.Read(tf.file, nativeEndian)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 
 		case NAME_VALUE_SECTION_ID:
 			tf.nameValueSection = &NameValueSection{}
 			err = tf.nameValueSection.Read(tf.file, nativeEndian)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 
 		case TAGS_SECTION_ID:
 			tf.tagsSection = &TagsSection{}
 			err = tf.tagsSection.Read(tf.file, nativeEndian)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 
 		default:
 			return fmt.Errorf("unknown section ID %d", sectionID)
 		}
 
 		afterSection, err := tf.file.Seek(0, 1)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		if (afterSection - beforeSection) != int64(nextSectionOffset) {
 			return fmt.Errorf("section reads too few or too many bytes")
 		}
@@ -524,65 +544,93 @@ func (tf *TickFile) writeHeader() error {
 	}
 	var currOffset int32 = 0
 	err = binary.Write(tf.file, nativeEndian, tf.header)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	currOffset += int32(reflect.TypeOf(tf.header).Size())
 
 	if tf.itemSection != nil {
 		sectionSize := int32(tf.itemSection.Size())
 		err = binary.Write(tf.file, nativeEndian, ITEM_SECTION_ID)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += 4
 		err = binary.Write(tf.file, nativeEndian, sectionSize)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += 4
 		err = tf.itemSection.Write(tf.file, nativeEndian)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += sectionSize
 	}
 
 	if tf.contentDescriptionSection != nil {
 		sectionSize := int32(tf.contentDescriptionSection.Size())
 		err = binary.Write(tf.file, nativeEndian, CONTENT_DESCRIPTION_SECTION_ID)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += 4
 		err = binary.Write(tf.file, nativeEndian, sectionSize)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += 4
 		err = tf.contentDescriptionSection.Write(tf.file, nativeEndian)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += sectionSize
 	}
 
 	if tf.nameValueSection != nil {
 		sectionSize := int32(tf.nameValueSection.Size())
 		err = binary.Write(tf.file, nativeEndian, NAME_VALUE_SECTION_ID)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += 4
 		err = binary.Write(tf.file, nativeEndian, sectionSize)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += 4
 		err = tf.nameValueSection.Write(tf.file, nativeEndian)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += sectionSize
 	}
 
 	if tf.tagsSection != nil {
 		sectionSize := int32(tf.tagsSection.Size())
 		err = binary.Write(tf.file, nativeEndian, TAGS_SECTION_ID)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += 4
 		err = binary.Write(tf.file, nativeEndian, sectionSize)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += 4
 		err = tf.tagsSection.Write(tf.file, nativeEndian)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += sectionSize
 	}
 
 	var paddingByte uint8 = 0
-	for; int64(currOffset) != tf.header.ItemStart; {
+	for int64(currOffset) != tf.header.ItemStart {
 		err = binary.Write(tf.file, nativeEndian, paddingByte)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		currOffset += 1
 	}
 
@@ -609,7 +657,7 @@ func (tf *TickFile) readTicks() error {
 		}
 	} else {
 
-		ticksSize := len(tf.mmap) - tf.itemCount * int(tf.itemSection.Info.ItemSize)
+		ticksSize := len(tf.mmap) - tf.itemCount*int(tf.itemSection.Info.ItemSize)
 		mmapIdx := tf.header.ItemStart + (int64(tf.itemCount) * int64(tf.itemSection.Info.ItemSize))
 		sh := &reflect.SliceHeader{
 			Data: uintptr(unsafe.Pointer(&tf.mmap[mmapIdx])),
