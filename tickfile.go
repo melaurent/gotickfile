@@ -409,6 +409,18 @@ func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
 	}
 }
 
+func (tf *TickFile) Sync() error {
+	if tf.file == nil {
+		return fmt.Errorf("teafile not open")
+	}
+	if err := tf.Flush(); err != nil {
+		return fmt.Errorf("error flushing buffer in file: %v", err)
+	}
+	if err := tf.file.Sync(); err != nil {
+		return fmt.Errorf("error syncing file: %v", err)
+	}
+	return nil
+}
 
 func (tf *TickFile) Flush() error {
 	// TODO check file mode
