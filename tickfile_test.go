@@ -2,7 +2,7 @@ package gotickfile
 
 import (
 	"fmt"
-	"github.com/spf13/afero"
+	"github.com/melaurent/kafero"
 	"reflect"
 	"testing"
 )
@@ -23,9 +23,9 @@ var data = Data{
 	Prib: 2,
 }
 
-var fs = afero.NewMemMapFs()
+var fs = kafero.NewMemMapFs()
 
-var goldenFs = afero.NewOsFs()
+var goldenFs = kafero.NewOsFs()
 
 func TestCreate(t *testing.T) {
 	//handle := NewOSFileHandle("test.tick")

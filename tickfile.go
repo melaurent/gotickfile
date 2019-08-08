@@ -3,7 +3,7 @@ package gotickfile
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/spf13/afero"
+	"github.com/melaurent/kafero"
 	"reflect"
 	"syscall"
 	"unsafe"
@@ -42,7 +42,7 @@ type Header struct {
 }
 
 type TickFile struct {
-	file                      afero.File
+	file                      kafero.File
 	write                     bool
 	mmap                      []byte
 	buffer                    []byte
@@ -57,7 +57,7 @@ type TickFile struct {
 	itemCount                 int
 }
 
-func Create(file afero.File, configs ...TickFileConfig) (*TickFile, error) {
+func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 	var tf *TickFile
 
 	if err := file.Truncate(0); err != nil {
@@ -164,7 +164,7 @@ func (tf *TickFile) ItemCount() int {
 	return tf.itemCount
 }
 
-func OpenWrite(file afero.File, dataType reflect.Type) (*TickFile, error) {
+func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 
 	tf := &TickFile{
 		file:      file,
@@ -239,7 +239,7 @@ func (tf *TickFile) Write(tick uint64, val interface{}) error {
 	return nil
 }
 
-func OpenRead(file afero.File, dataType reflect.Type) (*TickFile, error) {
+func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 
 	tf := &TickFile{
 		file:     file,
@@ -277,7 +277,7 @@ func OpenRead(file afero.File, dataType reflect.Type) (*TickFile, error) {
 	return tf, nil
 }
 
-func OpenHeader(file afero.File) (*TickFile, error) {
+func OpenHeader(file kafero.File) (*TickFile, error) {
 
 	tf := &TickFile{
 		file:      file,
