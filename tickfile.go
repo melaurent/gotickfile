@@ -257,7 +257,7 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 
 	tf.itemCount = tf.computeItemCount()
 
-	if tf.file.CanMmap() {
+	if tf.file.CanMmap() && tf.ItemCount() > 0 {
 		mmap, err := tf.openReadableMapping()
 		if err != nil {
 			return nil, fmt.Errorf("error opening readable mapping: %v", err)
