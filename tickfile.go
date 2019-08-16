@@ -422,12 +422,14 @@ func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
 }
 
 func (tf *TickFile) Flush() error {
-	// TODO check file mode
 	if tf.file == nil {
 		return fmt.Errorf("teafile not open")
 	}
-	_, err := tf.file.Write(tf.buffer[0:tf.bufferIdx])
-	if err != nil {
+	if !tf.write {
+		return fmt.Errorf("writing in read only tickfile")
+	}
+
+	if _, err := tf.file.Write(tf.buffer[0:tf.bufferIdx]); err != nil {
 		return err
 	}
 
@@ -443,7 +445,7 @@ func (tf *TickFile) Flush() error {
 	}
 
 	// Go back to end of items after writing ticks
-	if _, err = tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
+	if _, err := tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
 		return err
 	}
 
