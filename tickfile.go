@@ -60,7 +60,7 @@ func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 	var tf *TickFile
 
 	if err := file.Truncate(0); err != nil {
-		return nil, fmt.Errorf("error creating file: %v", err)
+		return nil, fmt.Errorf("error truncating file: %v", err)
 	}
 
 	tf = &TickFile{
@@ -175,6 +175,10 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		bufferIdx: 0,
 	}
 
+	if _, err := tf.file.Seek(0, 0); err != nil {
+		return nil, fmt.Errorf("error seeking to beginning of file: %v", err)
+	}
+
 	if err := tf.readHeader(); err != nil {
 		return nil, err
 	}
@@ -247,6 +251,10 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		dataType: dataType,
 	}
 
+	if _, err := tf.file.Seek(0, 0); err != nil {
+		return nil, fmt.Errorf("error seeking to beginning of file: %v", err)
+	}
+
 	if err := tf.readHeader(); err != nil {
 		return nil, fmt.Errorf("error reading file header: %v", err)
 	}
@@ -282,6 +290,10 @@ func OpenHeader(file kafero.File) (*TickFile, error) {
 	tf := &TickFile{
 		file:      file,
 		bufferIdx: 0,
+	}
+
+	if _, err := tf.file.Seek(0, 0); err != nil {
+		return nil, fmt.Errorf("error seeking to beginning of file: %v", err)
 	}
 
 	if err := tf.readHeader(); err != nil {
