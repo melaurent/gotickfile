@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/melaurent/kafero"
+	"io"
 	"reflect"
 	"syscall"
 	"unsafe"
@@ -365,9 +366,26 @@ func (tf *TickFile) Read() (interface{}, error) {
 }
 */
 
-func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
+func (tf *TickFile) Read(idx int) (uint64, []interface{}, error) {
+	// return all the items associated with the given tick
 	if idx >= tf.itemCount {
-		return 0, nil, fmt.Errorf("read out of range")
+		return 0, nil, io.EOF
+	}
+	tick := tf.ticks[idx]
+	var items []interface{}
+	for ; idx < len(tf.ticks) && tf.ticks[idx] == tick; idx++ {
+		_, item, err := tf.ReadItem(idx)
+		if err != nil {
+			return 0, nil, err
+		}
+		items = append(items, item)
+	}
+	return tick, items, nil
+}
+
+func (tf *TickFile) ReadItem(idx int) (uint64, interface{}, error) {
+	if idx >= tf.itemCount {
+		return 0, nil, io.EOF
 	}
 	if tf.mmap != nil {
 		// Easy, use mmap
@@ -376,7 +394,6 @@ func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
 		val := reflect.NewAt(tf.dataType, ptr)
 		return tf.ticks[idx], val.Interface(), nil
 	} else {
-		// Inefficient ! We do not expect a lot of reads when file is open in write mode
 
 		val := reflect.New(tf.dataType)
 		length := int(tf.itemSection.Info.ItemSize)
@@ -410,6 +427,7 @@ func (tf *TickFile) Read(idx int) (uint64, interface{}, error) {
 			}
 
 			if tf.write {
+				// Inefficient ! We do not expect a lot of reads when file is open in write mode
 				// Go back to item end for next writings
 				if _, err := tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
 					return 0, nil, err
