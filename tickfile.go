@@ -475,6 +475,11 @@ func (tf *TickFile) Close() error {
 	if tf.file != nil && tf.write {
 		return tf.Flush()
 	}
+	if tf.mmap != nil {
+		if err := tf.file.Munmap(); err != nil {
+			return fmt.Errorf("error munmapping: %v", err)
+		}
+	}
 	return nil
 }
 

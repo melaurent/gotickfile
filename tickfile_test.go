@@ -8,19 +8,19 @@ import (
 )
 
 type Data struct {
-	Time uint64
-	Price uint8
+	Time   uint64
+	Price  uint8
 	Volume uint64
-	Prob uint8
-	Prib uint64
+	Prob   uint8
+	Prib   uint64
 }
 
 var data = Data{
-	Time: 1299229200000,
-	Price: 253,
+	Time:   1299229200000,
+	Price:  253,
 	Volume: 8,
-	Prob: 252,
-	Prib: 2,
+	Prob:   252,
+	Prib:   2,
 }
 
 var fs = kafero.NewMemMapFs()
@@ -39,10 +39,10 @@ func TestCreate(t *testing.T) {
 		file,
 		WithDataType(reflect.TypeOf(Data{})),
 		WithContentDescription("prices of acme at NYSE"),
-		WithNameValues(map[string]interface{} {
+		WithNameValues(map[string]interface{}{
 			"decimals": int32(2),
-			"url"     : "www.acme.com",
-			"data"    : []byte{0x00, 0x01},
+			"url":      "www.acme.com",
+			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
 		t.Fatalf("error creating tickfile: %v", err)
@@ -146,10 +146,10 @@ func TestBasicKind(t *testing.T) {
 		file,
 		WithBasicType(reflect.TypeOf(val)),
 		WithContentDescription("prices of acme at NYSE"),
-		WithNameValues(map[string]interface{} {
+		WithNameValues(map[string]interface{}{
 			"decimals": int32(2),
-			"url"     : "www.acme.com",
-			"data"    : []byte{0x00, 0x01},
+			"url":      "www.acme.com",
+			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
 		t.Fatalf("error creating tickfile: %v", err)
@@ -159,7 +159,7 @@ func TestBasicKind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
-	tick, res, err := tf.Read(0)
+	tick, res, err := tf.ReadItem(0)
 	resData := res.(*float64)
 	if err != nil {
 		t.Fatalf("error reading data from tickfile: %v", err)
@@ -178,7 +178,7 @@ func TestOpenWrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error opening tickfile: %v", err)
 	}
-	tick, res, err := tf.Read(0)
+	tick, res, err := tf.ReadItem(0)
 	if err != nil {
 		t.Fatalf("error reading data: %v", err)
 	}
@@ -199,10 +199,10 @@ func TestCreate2(t *testing.T) {
 		file,
 		WithDataType(reflect.TypeOf(Data{})),
 		WithContentDescription("prices of acme at NYSE"),
-		WithNameValues(map[string]interface{} {
+		WithNameValues(map[string]interface{}{
 			"decimals": int32(2),
-			"url"     : "www.acme.com",
-			"data"    : []byte{0x00, 0x01},
+			"url":      "www.acme.com",
+			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
 		t.Fatalf("error creating tickfile: %v", err)
@@ -224,7 +224,7 @@ func TestCreate2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
-	tick, res, err := tf.Read(0)
+	tick, res, err := tf.ReadItem(0)
 	if err != nil {
 		t.Fatalf("error reading data: %v", err)
 	}
@@ -234,11 +234,11 @@ func TestCreate2(t *testing.T) {
 	}
 
 	// try reading delta in the buffer
-	tick, res, err = tf.Read(4)
+	tick, res, err = tf.ReadItem(4)
 	if err != nil {
 		t.Fatalf("error reading data: %v", err)
 	}
-	tick, res, err = tf.Read(4)
+	tick, res, err = tf.ReadItem(4)
 	resData := res.(*Data)
 	if tick != 4 || !reflect.DeepEqual(*resData, data) {
 		t.Fatalf("got a different read than expected")
@@ -258,7 +258,7 @@ func TestCreate2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error opening tickfile: %v", err)
 	}
-	tick, res, err = tf.Read(4)
+	tick, res, err = tf.ReadItem(4)
 	resData = res.(*Data)
 	if tick != 4 || !reflect.DeepEqual(*resData, data) {
 		t.Fatalf("got a different read than expected")
@@ -283,10 +283,32 @@ func TestRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error reading data: %v", err)
 	}
+	for _, r := range res {
+		resData := r.(*Data)
+		if tick != 0 || !reflect.DeepEqual(*resData, data) {
+			fmt.Println(res, data)
+			t.Fatalf("got a different read than expected")
+		}
+	}
+}
+
+func TestReadItem(t *testing.T) {
+	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
+	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
+	tf, err := OpenRead(goldenFile, reflect.TypeOf(Data{}))
+	if err != nil {
+		t.Fatalf("error opening tickfile: %v", err)
+	}
+	tick, res, err := tf.ReadItem(0)
+	if err != nil {
+		t.Fatalf("error reading data: %v", err)
+	}
 	resData := res.(*Data)
 	if tick != 0 || !reflect.DeepEqual(*resData, data) {
 		fmt.Println(res, data)
 		t.Fatalf("got a different read than expected")
 	}
 }
-
