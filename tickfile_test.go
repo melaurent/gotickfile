@@ -124,11 +124,11 @@ func TestCreate(t *testing.T) {
 			tf.contentDescriptionSection)
 	}
 
-	if !reflect.DeepEqual(goldTf.ticks, tf.ticks) {
+	if !reflect.DeepEqual(goldTf.Ticks, tf.Ticks) {
 		t.Fatalf(
 			"got different ticks: %v, %v",
-			goldTf.ticks,
-			tf.ticks)
+			goldTf.Ticks,
+			tf.Ticks)
 	}
 
 	if err = fs.Remove("test.tick"); err != nil {
