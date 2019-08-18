@@ -42,6 +42,7 @@ type Header struct {
 }
 
 type TickFile struct {
+	Ticks                     []uint64
 	file                      kafero.File
 	write                     bool
 	mmap                      []byte
@@ -49,7 +50,6 @@ type TickFile struct {
 	bufferIdx                 int
 	dataType                  reflect.Type
 	header                    Header
-	ticks                     []uint64
 	itemSection               *ItemSection
 	nameValueSection          *NameValueSection
 	tagsSection               *TagsSection
@@ -167,7 +167,6 @@ func (tf *TickFile) ItemCount() int {
 }
 
 func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
-
 	tf := &TickFile{
 		file:      file,
 		write:     true,
@@ -238,14 +237,13 @@ func (tf *TickFile) Write(tick uint64, val interface{}) error {
 		tf.bufferIdx += 1
 	}
 
-	tf.ticks = append(tf.ticks, tick)
+	tf.Ticks = append(tf.Ticks, tick)
 	tf.itemCount += 1
 
 	return nil
 }
 
 func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
-
 	tf := &TickFile{
 		file:     file,
 		write:    false,
@@ -371,9 +369,9 @@ func (tf *TickFile) Read(idx int) (uint64, []interface{}, error) {
 	if idx >= tf.itemCount {
 		return 0, nil, io.EOF
 	}
-	tick := tf.ticks[idx]
+	tick := tf.Ticks[idx]
 	var items []interface{}
-	for ; idx < len(tf.ticks) && tf.ticks[idx] == tick; idx++ {
+	for ; idx < len(tf.Ticks) && tf.Ticks[idx] == tick; idx++ {
 		_, item, err := tf.ReadItem(idx)
 		if err != nil {
 			return 0, nil, err
@@ -392,7 +390,7 @@ func (tf *TickFile) ReadItem(idx int) (uint64, interface{}, error) {
 		mmapIdx := tf.header.ItemStart + (int64(idx) * int64(tf.itemSection.Info.ItemSize))
 		ptr := unsafe.Pointer(&tf.mmap[mmapIdx])
 		val := reflect.NewAt(tf.dataType, ptr)
-		return tf.ticks[idx], val.Interface(), nil
+		return tf.Ticks[idx], val.Interface(), nil
 	} else {
 
 		val := reflect.New(tf.dataType)
@@ -435,7 +433,7 @@ func (tf *TickFile) ReadItem(idx int) (uint64, interface{}, error) {
 			}
 		}
 
-		return tf.ticks[idx], val.Interface(), nil
+		return tf.Ticks[idx], val.Interface(), nil
 	}
 }
 
@@ -688,7 +686,7 @@ func (tf *TickFile) readTicks() error {
 	if err != nil {
 		return err
 	}
-	tf.ticks = ticks
+	tf.Ticks = ticks
 	return nil
 }
 
@@ -696,7 +694,7 @@ func (tf *TickFile) writeTicks() error {
 	if _, err := tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
 		return err
 	}
-	data := CompressTicks(tf.ticks)
+	data := CompressTicks(tf.Ticks)
 	if _, err := tf.file.Write(data); err != nil {
 		return err
 	}
