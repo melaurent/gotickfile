@@ -216,7 +216,7 @@ func (tf *TickFile) Write(tick uint64, val interface{}) error {
 		}
 	}
 	if N := len(tf.Ticks); N > 0 && tick < tf.Ticks[N-1] {
-		return ErrTickOutOfOder
+		return ErrTickOutOfOrder
 	}
 
 	vp := reflect.New(reflect.TypeOf(val))
