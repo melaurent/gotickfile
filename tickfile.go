@@ -215,6 +215,9 @@ func (tf *TickFile) Write(tick uint64, val interface{}) error {
 			return fmt.Errorf("was expecting %s, got %s", tf.dataType, reflect.TypeOf(val))
 		}
 	}
+	if N := len(tf.Ticks); N > 0 && tick < tf.Ticks[N-1] {
+		return fmt.Errorf("out of order tick write not supported")
+	}
 
 	vp := reflect.New(reflect.TypeOf(val))
 	vp.Elem().Set(reflect.ValueOf(val))
