@@ -203,7 +203,7 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 // ticks: ticks since epoch
 func (tf *TickFile) Write(tick uint64, val interface{}) error {
 	if !tf.write {
-		return fmt.Errorf("writing in read only tickfile")
+		return ErrReadOnly
 	}
 
 	if tf.itemSection == nil {
@@ -216,7 +216,7 @@ func (tf *TickFile) Write(tick uint64, val interface{}) error {
 		}
 	}
 	if N := len(tf.Ticks); N > 0 && tick < tf.Ticks[N-1] {
-		return fmt.Errorf("out of order tick write not supported")
+		return ErrTickOutOfOder
 	}
 
 	vp := reflect.New(reflect.TypeOf(val))
@@ -445,7 +445,7 @@ func (tf *TickFile) Flush() error {
 		return fmt.Errorf("teafile not open")
 	}
 	if !tf.write {
-		return fmt.Errorf("writing in read only tickfile")
+		return ErrReadOnly
 	}
 
 	if _, err := tf.file.Write(tf.buffer[0:tf.bufferIdx]); err != nil {
