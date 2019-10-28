@@ -15,9 +15,17 @@ type Data struct {
 	Prib   uint64
 }
 
-var data = Data{
+var data1 = Data{
 	Time:   1299229200000,
 	Price:  253,
+	Volume: 8,
+	Prob:   252,
+	Prib:   2,
+}
+
+var data2 = Data{
+	Time:   1299229200000,
+	Price:  124,
 	Volume: 8,
 	Prob:   252,
 	Prib:   2,
@@ -48,32 +56,32 @@ func TestCreate(t *testing.T) {
 		t.Fatalf("error creating tickfile: %v", err)
 	}
 
-	err = tf.Write(0, data)
+	err = tf.Write(0, data1)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
 
-	err = tf.Write(1, data)
+	err = tf.Write(1, data1)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
 
-	err = tf.Write(2, data)
+	err = tf.Write(2, data1)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
 
-	err = tf.Write(3, data)
+	err = tf.Write(3, data1)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
 
-	err = tf.Write(14, data)
+	err = tf.Write(14, data1)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
 
-	err = tf.Write(30, data)
+	err = tf.Write(30, data1)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
@@ -182,9 +190,81 @@ func TestOpenWrite(t *testing.T) {
 		t.Fatalf("error reading data: %v", err)
 	}
 	resData := res.(*Data)
-	if tick != 0 || !reflect.DeepEqual(*resData, data) {
-		fmt.Println(res, data)
+	if tick != 0 || !reflect.DeepEqual(*resData, data1) {
+		fmt.Println(res, data1)
 		t.Fatalf("got a different read than expected")
+	}
+}
+
+func TestAppend(t *testing.T) {
+	file, err := fs.Create("test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
+
+	tf, err := Create(
+		file,
+		WithDataType(reflect.TypeOf(Data{})),
+		WithContentDescription("prices of acme at NYSE"),
+		WithNameValues(map[string]interface{}{
+			"decimals": int32(2),
+			"url":      "www.acme.com",
+			"data":     []byte{0x00, 0x01},
+		}))
+	if err != nil {
+		t.Fatalf("error creating tickfile: %v", err)
+	}
+
+	for i := 0; i < 100; i++ {
+		err = tf.Write(uint64(i), data1)
+		if err != nil {
+			t.Fatalf("error writing data to tickfile: %v", err)
+		}
+	}
+	if err := tf.Close(); err != nil {
+		t.Fatalf("error closing tickfile: %v", err)
+	}
+
+	tf, err = OpenWrite(file, reflect.TypeOf(Data{}))
+	if err != nil {
+		t.Fatalf("error opening tickfile in write mode: %v", err)
+	}
+
+	for i := 100; i < 200; i++ {
+		err = tf.Write(uint64(i), data2)
+		if err != nil {
+			t.Fatalf("error writing data to tickfile: %v", err)
+		}
+	}
+	err = tf.Close()
+	if err != nil {
+		t.Fatalf("error closing tickfile: %v", err)
+	}
+
+	tf, err = OpenRead(file, reflect.TypeOf(Data{}))
+	if err != nil {
+		t.Fatalf("error opening tickfile for reading: %v", err)
+	}
+
+	for i := 0; i < 100; i++ {
+		_, d, err := tf.ReadItem(i)
+		if err != nil {
+			t.Fatalf("error reading item: %v", err)
+		}
+		tmp := d.(*Data)
+		if *tmp != data1 {
+			t.Fatalf("was expecting data1")
+		}
+	}
+	for i := 100; i < 200; i++ {
+		_, d, err := tf.ReadItem(i)
+		if err != nil {
+			t.Fatalf("error reading item: %v", err)
+		}
+		tmp := d.(*Data)
+		if *tmp != data2 {
+			t.Fatalf("was expecting data1")
+		}
 	}
 }
 
@@ -207,19 +287,19 @@ func TestCreate2(t *testing.T) {
 		t.Fatalf("error creating tickfile: %v", err)
 	}
 
-	err = tf.Write(0, data)
+	err = tf.Write(0, data1)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
-	err = tf.Write(1, data)
+	err = tf.Write(1, data1)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
-	err = tf.Write(2, data)
+	err = tf.Write(2, data1)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
-	err = tf.Write(3, data)
+	err = tf.Write(3, data1)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
@@ -227,7 +307,7 @@ func TestCreate2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error reading data: %v", err)
 	}
-	err = tf.Write(4, data)
+	err = tf.Write(4, data1)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
@@ -239,7 +319,7 @@ func TestCreate2(t *testing.T) {
 	}
 	tick, res, err = tf.ReadItem(4)
 	resData := res.(*Data)
-	if tick != 4 || !reflect.DeepEqual(*resData, data) {
+	if tick != 4 || !reflect.DeepEqual(*resData, data1) {
 		t.Fatalf("got a different read than expected")
 	}
 
@@ -259,7 +339,7 @@ func TestCreate2(t *testing.T) {
 	}
 	tick, res, err = tf.ReadItem(4)
 	resData = res.(*Data)
-	if tick != 4 || !reflect.DeepEqual(*resData, data) {
+	if tick != 4 || !reflect.DeepEqual(*resData, data1) {
 		t.Fatalf("got a different read than expected")
 	}
 
@@ -284,8 +364,8 @@ func TestRead(t *testing.T) {
 	}
 	for _, r := range res {
 		resData := r.(*Data)
-		if tick != 0 || !reflect.DeepEqual(*resData, data) {
-			fmt.Println(res, data)
+		if tick != 0 || !reflect.DeepEqual(*resData, data1) {
+			fmt.Println(res, data1)
 			t.Fatalf("got a different read than expected")
 		}
 	}
@@ -306,8 +386,8 @@ func TestReadItem(t *testing.T) {
 		t.Fatalf("error reading data: %v", err)
 	}
 	resData := res.(*Data)
-	if tick != 0 || !reflect.DeepEqual(*resData, data) {
-		fmt.Println(res, data)
+	if tick != 0 || !reflect.DeepEqual(*resData, data1) {
+		fmt.Println(res, data1)
 		t.Fatalf("got a different read than expected")
 	}
 }
