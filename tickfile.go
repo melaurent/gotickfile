@@ -193,7 +193,7 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		return nil, err
 	}
 
-	if _, err := tf.file.Seek(tf.header.ItemStart, 0); err != nil {
+	if _, err := tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
 		return nil, err
 	}
 
