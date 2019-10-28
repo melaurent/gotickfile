@@ -91,7 +91,6 @@ func TestCreate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error opening tickfile: %v", err)
 	}
-
 	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
 	// Comparing with fixture
 	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")

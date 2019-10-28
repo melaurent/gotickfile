@@ -453,29 +453,25 @@ func (tf *TickFile) Flush() error {
 	}
 
 	tf.header.ItemEnd += int64(tf.bufferIdx)
-
-	// Now write header to update itemStart, itemEnd, endEpoch
-	if err := tf.writeHeader(); err != nil {
-		return err
-	}
-
-	if err := tf.writeTicks(); err != nil {
-		return err
-	}
-
-	// Go back to end of items after writing ticks
-	if _, err := tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
-		return err
-	}
-
 	tf.bufferIdx = 0
 	return nil
 }
 
 func (tf *TickFile) Close() error {
 	if tf.file != nil && tf.write {
-		return tf.Flush()
+		if err := tf.Flush(); err != nil {
+			return err
+		}
+		// Now write header to update itemStart, itemEnd, endEpoch
+		if err := tf.writeHeader(); err != nil {
+			return err
+		}
+
+		if err := tf.writeTicks(); err != nil {
+			return err
+		}
 	}
+
 	if tf.mmap != nil {
 		if err := tf.file.Munmap(); err != nil {
 			return fmt.Errorf("error munmapping: %v", err)
@@ -670,6 +666,7 @@ func (tf *TickFile) readTicks() error {
 
 		size := fstat.Size()
 		ticksSize := size - tf.header.ItemEnd
+
 		data = make([]byte, ticksSize)
 		if _, err := tf.file.Read(data); err != nil {
 			return err
