@@ -442,7 +442,7 @@ func (tf *TickFile) ReadItem(idx int) (uint64, interface{}, error) {
 
 func (tf *TickFile) Flush() error {
 	if tf.file == nil {
-		return fmt.Errorf("teafile not open")
+		return fmt.Errorf("tick file not open")
 	}
 	if !tf.write {
 		return ErrReadOnly
@@ -462,7 +462,7 @@ func (tf *TickFile) Close() error {
 		if err := tf.Flush(); err != nil {
 			return err
 		}
-		// Now write header to update itemStart, itemEnd, endEpoch
+		// Now write header to update itemEnd
 		if err := tf.writeHeader(); err != nil {
 			return err
 		}
