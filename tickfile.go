@@ -426,14 +426,6 @@ func (tf *TickFile) ReadItem(idx int) (uint64, interface{}, error) {
 			if _, err := tf.file.Read(b); err != nil {
 				return 0, nil, err
 			}
-
-			if tf.write {
-				// Inefficient ! We do not expect a lot of reads when file is open in write mode
-				// Go back to item end for next writings
-				if _, err := tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
-					return 0, nil, err
-				}
-			}
 		}
 
 		return tf.Ticks[idx], val.Interface(), nil
@@ -448,6 +440,9 @@ func (tf *TickFile) Flush() error {
 		return ErrReadOnly
 	}
 
+	if _, err := tf.file.Seek(tf.header.ItemEnd, 0); err != nil {
+		return err
+	}
 	if _, err := tf.file.Write(tf.buffer[0:tf.bufferIdx]); err != nil {
 		return err
 	}
