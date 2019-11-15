@@ -8,19 +8,19 @@ import (
 
 func TestWithDataType(t *testing.T) {
 	type Data struct {
-		Time uint64
-		Price uint8
+		Time   uint64
+		Price  uint8
 		Volume uint64
-		Prob uint8
-		Prib uint64
+		Prob   uint8
+		Prib   uint64
 	}
 
 	// Test that a config creates the correct item section
 	fixture := ItemSection{
 		Info: ItemSectionInfo{
-			ItemSize: 40,
+			ItemSize:     40,
 			ItemTypeName: "Data",
-			FieldCount: 5,
+			FieldCount:   5,
 		},
 		Fields: []ItemSectionField{
 			{Index: 0, Type: 8, Offset: 0, Name: "Time"},
@@ -59,7 +59,8 @@ func TestWithContentDescription(t *testing.T) {
 	}
 	tf, err := Create(
 		file,
-		WithContentDescription("prices of acme at NYSE"))
+		WithContentDescription("prices of acme at NYSE"),
+		WithDataType(reflect.TypeOf(Data{})))
 	if err != nil {
 		t.Fatalf("error creating TeaFile: %v", err)
 	}
@@ -75,7 +76,7 @@ func TestWithNameValues(t *testing.T) {
 	// Test that a config creates the correct name value section
 	id := uuid.NewV1()
 	fixture := NameValueSection{
-		NameValues: map[string]interface{} {
+		NameValues: map[string]interface{}{
 			"a": int32(1),
 			"b": "c",
 			"c": float64(1.2),
@@ -95,7 +96,8 @@ func TestWithNameValues(t *testing.T) {
 			"c": float64(1.2),
 			"d": id,
 			"e": uint64(100),
-		}))
+		}),
+		WithDataType(reflect.TypeOf(Data{})))
 	if err != nil {
 		t.Fatalf("error creating TeaFile: %v", err)
 	}
