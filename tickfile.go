@@ -55,6 +55,7 @@ type TickFile struct {
 	tagsSection               *TagsSection
 	contentDescriptionSection *ContentDescriptionSection
 	itemCount                 int
+	tmpVal                    reflect.Value
 }
 
 func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
@@ -73,6 +74,9 @@ func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 
 	for _, config := range configs {
 		config(tf)
+	}
+	if tf.dataType == nil {
+		return nil, fmt.Errorf("no data type")
 	}
 	tf.header.SectionCount = 0
 	tf.header.ItemStart = int64(reflect.TypeOf(tf.header).Size())
@@ -134,7 +138,7 @@ func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 	}
 
 	tf.itemCount = 0
-
+	tf.tmpVal = reflect.New(tf.dataType)
 	return tf, nil
 }
 
@@ -197,6 +201,7 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		return nil, err
 	}
 
+	tf.tmpVal = reflect.New(tf.dataType)
 	return tf, nil
 }
 
@@ -219,9 +224,8 @@ func (tf *TickFile) Write(tick uint64, val interface{}) error {
 		return ErrTickOutOfOrder
 	}
 
-	vp := reflect.New(reflect.TypeOf(val))
-	vp.Elem().Set(reflect.ValueOf(val))
-	ptr := vp.Pointer()
+	tf.tmpVal.Elem().Set(reflect.ValueOf(val))
+	ptr := tf.tmpVal.Pointer()
 	length := int(tf.itemSection.Info.ItemSize)
 	var sl = struct {
 		addr uintptr
@@ -284,6 +288,7 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 
 	}
 
+	tf.tmpVal = reflect.New(tf.dataType)
 	return tf, nil
 }
 
