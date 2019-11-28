@@ -214,26 +214,29 @@ func (tf *TickFile) Write(tick uint64, val interface{}) error {
 	if tf.itemSection == nil {
 		return fmt.Errorf("this file has no item section")
 	}
-	if reflect.TypeOf(val) != tf.dataType {
-		val = reflect.ValueOf(val).Elem().Interface()
-		if reflect.TypeOf(val) != tf.dataType {
-			return fmt.Errorf("was expecting %s, got %s", tf.dataType, reflect.TypeOf(val))
-		}
+
+	expectedType := reflect.PtrTo(reflect.SliceOf(tf.dataType))
+
+	if reflect.TypeOf(val) != expectedType {
+		return fmt.Errorf("was expecting pointer to slice of %s, got %s", tf.dataType, reflect.TypeOf(val))
 	}
+
 	if N := len(tf.Ticks); N > 0 && tick < tf.Ticks[N-1] {
 		return ErrTickOutOfOrder
 	}
 
-	tf.tmpVal.Elem().Set(reflect.ValueOf(val))
-	ptr := tf.tmpVal.Pointer()
-	length := int(tf.itemSection.Info.ItemSize)
+	hdr := (*reflect.SliceHeader)(unsafe.Pointer(reflect.ValueOf(val).Pointer()))
+	size := hdr.Len * int(tf.itemSection.Info.ItemSize)
+
 	var sl = struct {
 		addr uintptr
 		len  int
 		cap  int
-	}{ptr, length, length}
+	}{hdr.Data, size, size}
+
 	b := *(*[]byte)(unsafe.Pointer(&sl))
-	if tf.bufferIdx+length > len(tf.buffer) {
+
+	if tf.bufferIdx+size > len(tf.buffer) {
 		err := tf.Flush()
 		if err != nil {
 			return err
@@ -242,10 +245,19 @@ func (tf *TickFile) Write(tick uint64, val interface{}) error {
 	for i := 0; i < len(b); i++ {
 		tf.buffer[tf.bufferIdx] = b[i]
 		tf.bufferIdx += 1
+		if tf.bufferIdx == len(tf.buffer) {
+			err := tf.Flush()
+			if err != nil {
+				return err
+			}
+		}
 	}
 
-	tf.Ticks = append(tf.Ticks, tick)
-	tf.itemCount += 1
+	// TODO improve speed
+	for i := 0; i < hdr.Len; i++ {
+		tf.Ticks = append(tf.Ticks, tick)
+	}
+	tf.itemCount += hdr.Len
 
 	return nil
 }
@@ -372,21 +384,116 @@ func (tf *TickFile) Read() (interface{}, error) {
 }
 */
 
-func (tf *TickFile) Read(idx int) (uint64, []interface{}, error) {
+func (tf *TickFile) ReadSlice() (interface{}, error) {
+	if tf.mmap == nil {
+		return nil, fmt.Errorf("cannot read array on a non-mmap file")
+	}
+	// Easy, use mmap
+	mmapIdx := tf.header.ItemStart
+	ptr := unsafe.Pointer(&tf.mmap[mmapIdx])
+
+	sliceHeader := &reflect.SliceHeader{
+		Data: uintptr(ptr),
+		Len:  tf.itemCount,
+		Cap:  tf.itemCount,
+	}
+	sliceHeaderPtr := unsafe.Pointer(sliceHeader)
+
+	sliceTyp := reflect.SliceOf(tf.dataType)
+	slice := reflect.NewAt(sliceTyp, sliceHeaderPtr)
+
+	return slice.Interface(), nil
+}
+
+func (tf *TickFile) Read(idx int) (int, uint64, interface{}, error) {
 	// return all the items associated with the given tick
 	if idx >= tf.itemCount {
-		return 0, nil, io.EOF
+		return 0, 0, nil, io.EOF
 	}
+
 	tick := tf.Ticks[idx]
-	var items []interface{}
-	for ; idx < len(tf.Ticks) && tf.Ticks[idx] == tick; idx++ {
-		_, item, err := tf.ReadItem(idx)
-		if err != nil {
-			return 0, nil, err
-		}
-		items = append(items, item)
+	itemCount := 0
+	for i := idx; i < len(tf.Ticks) && tf.Ticks[i] == tick; i++ {
+		itemCount += 1
 	}
-	return tick, items, nil
+
+	if tf.mmap != nil {
+		mmapIdx := tf.header.ItemStart + (int64(idx) * int64(tf.itemSection.Info.ItemSize))
+
+		ptr := unsafe.Pointer(&tf.mmap[mmapIdx])
+
+		sliceHeader := &reflect.SliceHeader{
+			Data: uintptr(ptr),
+			Len:  itemCount,
+			Cap:  itemCount,
+		}
+		sliceHeaderPtr := unsafe.Pointer(sliceHeader)
+
+		sliceTyp := reflect.SliceOf(tf.dataType)
+		slice := reflect.NewAt(sliceTyp, sliceHeaderPtr)
+
+		return itemCount, tick, slice.Interface(), nil
+
+	} else {
+		// Create a slice of bytes, read from file and buffer
+		size := itemCount * int(tf.itemSection.Info.ItemSize)
+		buffer := make([]byte, size, size)
+
+		areaSize := tf.header.ItemEnd - tf.header.ItemStart
+		itemsInFile := int((areaSize) / int64(tf.itemSection.Info.ItemSize))
+		off := 0
+
+		// Only read from file if start > item
+		if idx < itemsInFile {
+			// Read from file
+			pointer := tf.header.ItemStart + int64(idx)*int64(tf.itemSection.Info.ItemSize)
+			if _, err := tf.file.Seek(pointer, 0); err != nil {
+				return 0, 0, nil, err
+			}
+
+			var err error
+			off, err = tf.file.Read(buffer)
+			if err != nil {
+				return 0, 0, nil, err
+			}
+			idx += itemsInFile - idx
+		}
+
+		// Read from buffer
+		buffIdx := (idx - itemsInFile) * int(tf.itemSection.Info.ItemSize)
+		i := 0
+		for off < len(buffer) {
+			buffer[off] = tf.buffer[buffIdx+i]
+			off += 1
+			i += 1
+		}
+
+		// TODO what about garbage collection ?
+		header := *(*reflect.SliceHeader)(unsafe.Pointer(&buffer))
+
+		// The length and capacity of the slice are different.
+		header.Len /= int(tf.itemSection.Info.ItemSize)
+		header.Cap /= int(tf.itemSection.Info.ItemSize)
+
+		// Convert slice header
+		sliceHeaderPtr := unsafe.Pointer(&header)
+		sliceTyp := reflect.SliceOf(tf.dataType)
+		slice := reflect.NewAt(sliceTyp, sliceHeaderPtr)
+
+		return itemCount, tick, slice.Interface(), nil
+	}
+
+	/*
+		var items []interface{}
+		for ; idx < len(tf.Ticks) && tf.Ticks[idx] == tick; idx++ {
+			_, item, err := tf.ReadItem(idx)
+			if err != nil {
+				return 0, nil, err
+			}
+			items = append(items, item)
+		}
+		return tick, items, nil
+	*/
 }
 
 func (tf *TickFile) ReadItem(idx int) (uint64, interface{}, error) {
@@ -544,6 +651,7 @@ func (tf *TickFile) readHeader() error {
 		if err != nil {
 			return err
 		}
+
 		if (afterSection - beforeSection) != int64(nextSectionOffset) {
 			return fmt.Errorf("section reads too few or too many bytes")
 		}
@@ -713,7 +821,7 @@ func (tf *TickFile) checkDataType() error {
 			}
 		}
 		if len(fields) != len(tf.itemSection.Fields) {
-			return fmt.Errorf("given type has %d fields, was expecting %d", n, len(tf.itemSection.Fields))
+			return fmt.Errorf("given type has %d fields, was expecting %d", len(fields), len(tf.itemSection.Fields))
 		}
 		for i := 0; i < len(fields); i++ {
 			dataField := fields[i]

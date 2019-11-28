@@ -56,32 +56,34 @@ func TestCreate(t *testing.T) {
 		t.Fatalf("error creating tickfile: %v", err)
 	}
 
-	err = tf.Write(0, data1)
+	deltas := []Data{data1}
+
+	err = tf.Write(0, &deltas)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
 
-	err = tf.Write(1, data1)
+	err = tf.Write(1, &deltas)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
 
-	err = tf.Write(2, data1)
+	err = tf.Write(2, &deltas)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
 
-	err = tf.Write(3, data1)
+	err = tf.Write(3, &deltas)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
 
-	err = tf.Write(14, data1)
+	err = tf.Write(14, &deltas)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
 
-	err = tf.Write(30, data1)
+	err = tf.Write(30, &deltas)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
@@ -162,7 +164,8 @@ func TestBasicKind(t *testing.T) {
 		t.Fatalf("error creating tickfile: %v", err)
 	}
 
-	err = tf.Write(0, val)
+	deltas := []float64{val}
+	err = tf.Write(0, &deltas)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
@@ -216,7 +219,8 @@ func TestAppend(t *testing.T) {
 	}
 
 	for i := 0; i < 100; i++ {
-		err = tf.Write(uint64(i), data1)
+		deltas := []Data{data1}
+		err = tf.Write(uint64(i), &deltas)
 		if err != nil {
 			t.Fatalf("error writing data to tickfile: %v", err)
 		}
@@ -231,7 +235,8 @@ func TestAppend(t *testing.T) {
 	}
 
 	for i := 100; i < 200; i++ {
-		err = tf.Write(uint64(i), data2)
+		deltas := []Data{data2}
+		err = tf.Write(uint64(i), &deltas)
 		if err != nil {
 			t.Fatalf("error writing data to tickfile: %v", err)
 		}
@@ -287,19 +292,21 @@ func TestCreate2(t *testing.T) {
 		t.Fatalf("error creating tickfile: %v", err)
 	}
 
-	err = tf.Write(0, data1)
+	deltas := []Data{data1}
+
+	err = tf.Write(0, &deltas)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
-	err = tf.Write(1, data1)
+	err = tf.Write(1, &deltas)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
-	err = tf.Write(2, data1)
+	err = tf.Write(2, &deltas)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
-	err = tf.Write(3, data1)
+	err = tf.Write(3, &deltas)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
@@ -307,7 +314,7 @@ func TestCreate2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error reading data: %v", err)
 	}
-	err = tf.Write(4, data1)
+	err = tf.Write(4, &deltas)
 	if err != nil {
 		t.Fatalf("error writing data to tickfile: %v", err)
 	}
@@ -358,14 +365,142 @@ func TestRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error opening tickfile: %v", err)
 	}
-	tick, res, err := tf.Read(0)
+	_, tick, res, err := tf.Read(0)
 	if err != nil {
 		t.Fatalf("error reading data: %v", err)
 	}
-	for _, r := range res {
-		resData := r.(*Data)
-		if tick != 0 || !reflect.DeepEqual(*resData, data1) {
+	slice := *res.(*[]Data)
+	for _, r := range slice {
+		if tick != 0 || !reflect.DeepEqual(r, data1) {
 			fmt.Println(res, data1)
+			t.Fatalf("got a different read than expected")
+		}
+	}
+}
+
+func TestReadWriteMode(t *testing.T) {
+	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
+	file, err := fs.Create("test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
+	tf, err := Create(
+		file,
+		WithDataType(reflect.TypeOf(Data{})),
+		WithContentDescription("prices of acme at NYSE"),
+		WithNameValues(map[string]interface{}{
+			"decimals": int32(2),
+			"url":      "www.acme.com",
+			"data":     []byte{0x00, 0x01},
+		}))
+	if err != nil {
+		t.Fatalf("error creating tickfile: %v", err)
+	}
+
+	var goldenDeltas []Data
+	for i := 0; i < 300; i++ {
+		deltas := []Data{{
+			Time:   uint64(i),
+			Price:  10,
+			Volume: 10,
+			Prob:   0,
+			Prib:   0,
+		}}
+		if err := tf.Write(0, &deltas); err != nil {
+			t.Fatalf("error writing: %v", err)
+		}
+		goldenDeltas = append(goldenDeltas, deltas...)
+	}
+
+	// Test bigger than buffer write
+	if err := tf.Write(0, &goldenDeltas); err != nil {
+		t.Fatalf("error writing: %v", err)
+	}
+	goldenDeltas = append(goldenDeltas, goldenDeltas...)
+
+	_, tick, res, err := tf.Read(0)
+	if err != nil {
+		t.Fatalf("error reading data: %v", err)
+	}
+	slice := *res.(*[]Data)
+	for i := range goldenDeltas {
+		if tick != 0 || !reflect.DeepEqual(slice[i], goldenDeltas[i]) {
+			fmt.Println(slice[i], goldenDeltas[i])
+			t.Fatalf("got a different read than expected")
+		}
+	}
+}
+
+func TestReadArray(t *testing.T) {
+	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
+	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
+	tf, err := OpenRead(goldenFile, reflect.TypeOf(Data{}))
+	if err != nil {
+		t.Fatalf("error opening tickfile: %v", err)
+	}
+
+	interf, err := tf.ReadSlice()
+	array := *(interf.(*[]Data))
+	for _, d := range array {
+		if !reflect.DeepEqual(d, data1) {
+			fmt.Println(d, data1)
+			t.Fatalf("got a different read than expected")
+		}
+	}
+}
+
+func TestReadArrayBasic(t *testing.T) {
+	var val float64 = 0.8
+	file, err := goldenFs.Create("test-fixtures/tmp.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
+	defer func() {
+		_ = file.Close()
+		_ = goldenFs.Remove("test-fixtures/tmp.tick")
+	}()
+	tf, err := Create(
+		file,
+		WithBasicType(reflect.TypeOf(val)),
+		WithContentDescription("prices of acme at NYSE"),
+		WithNameValues(map[string]interface{}{
+			"decimals": int32(2),
+			"url":      "www.acme.com",
+			"data":     []byte{0x00, 0x01},
+		}))
+	if err != nil {
+		t.Fatalf("error creating tickfile: %v", err)
+	}
+
+	var goldenArray []float64
+	for i := 1; i < 100; i++ {
+		val = 1.0 / float64(i)
+		goldenArray = append(goldenArray, val)
+	}
+	err = tf.Write(0, &goldenArray)
+
+	if err != nil {
+		t.Fatalf("error writing data to tickfile: %v", err)
+	}
+
+	_ = tf.Close()
+
+	tf, err = OpenRead(file, reflect.TypeOf(val))
+	if err != nil {
+		t.Fatalf("error opening tickfile for reading: %v", err)
+	}
+
+	interf, err := tf.ReadSlice()
+	if err != nil {
+		t.Fatalf("error reading slice: %v", err)
+	}
+	array := *(interf.(*[]float64))
+	for i := range array {
+		if !reflect.DeepEqual(array[i], goldenArray[i]) {
+			fmt.Println(array[i], goldenArray[i])
 			t.Fatalf("got a different read than expected")
 		}
 	}
