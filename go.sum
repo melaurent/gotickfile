@@ -36,6 +36,8 @@ github.com/melaurent/kafero v1.2.3-0.20190807185819-c9b7ace9843b h1:gCGYpjJbMWvE
 github.com/melaurent/kafero v1.2.3-0.20190807185819-c9b7ace9843b/go.mod h1:4DyG1ut8a17nLZBYe5E893lr+N2+JfpvkVn+Hyd5y5U=
 github.com/melaurent/kafero v1.2.4-0.20191114140830-d62b21174a47 h1:4ZkovEfNFRKIzcZF8mquX1fEvQIz52c5HXW0H0eRKNg=
 github.com/melaurent/kafero v1.2.4-0.20191114140830-d62b21174a47/go.mod h1:m6A5SX8eAQhkEBq7ZdqEAJEKHaO+FDnVnYB6OeO9/lw=
+github.com/melaurent/kafero v1.2.4-0.20200218222929-17fb17df7ed1 h1:KFIdnMG/AxlAjRceAyt9If0IcZszYWfzXL305KY1bIA=
+github.com/melaurent/kafero v1.2.4-0.20200218222929-17fb17df7ed1/go.mod h1:m6A5SX8eAQhkEBq7ZdqEAJEKHaO+FDnVnYB6OeO9/lw=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/sftp v1.10.0/go.mod h1:NxmoDg/QLVWluQDUYG7XBZTLUpKeFa8e3aMf1BfjyHk=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
