@@ -158,6 +158,10 @@ func (tf *TickFile) GetTags() map[string]string {
 	}
 }
 
+func (tf *TickFile) GetFile() kafero.File {
+	return tf.file
+}
+
 func (tf *TickFile) computeItemCount() int {
 	areaSize := tf.header.ItemEnd - tf.header.ItemStart
 	buffSize := int64(tf.bufferIdx)
