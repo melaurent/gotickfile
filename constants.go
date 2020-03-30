@@ -11,36 +11,36 @@ const (
 	NAME_VALUE_SECTION_ID          int32 = 0x81
 	TAGS_SECTION_ID                int32 = 0x82
 
-	NAME_VALUE_INT32               int32 = 3
-	NAME_VALUE_UINT64              int32 = 5
-	NAME_VALUE_DOUBLE              int32 = 10
-	NAME_VALUE_BYTES               int32 = 11
-	NAME_VALUE_TEXT                int32 = 12
-	NAME_VALUE_UUID                int32 = 13
+	NAME_VALUE_INT32  int32 = 3
+	NAME_VALUE_UINT64 int32 = 5
+	NAME_VALUE_DOUBLE int32 = 10
+	NAME_VALUE_BYTES  int32 = 11
+	NAME_VALUE_TEXT   int32 = 12
+	NAME_VALUE_UUID   int32 = 13
 )
 
-var fieldTypeToKind = map[uint8]reflect.Kind {
-	1 : reflect.Int8,
-	2 : reflect.Int16,
-	3 : reflect.Int32,
-	4 : reflect.Int64,
-	5 : reflect.Uint8,
-	6 : reflect.Uint16,
-	7 : reflect.Uint32,
-	8 : reflect.Uint64,
-	9 : reflect.Float32,
+var fieldTypeToKind = map[uint8]reflect.Kind{
+	1:  reflect.Int8,
+	2:  reflect.Int16,
+	3:  reflect.Int32,
+	4:  reflect.Int64,
+	5:  reflect.Uint8,
+	6:  reflect.Uint16,
+	7:  reflect.Uint32,
+	8:  reflect.Uint64,
+	9:  reflect.Float32,
 	10: reflect.Float64,
 }
 
 var kindToFieldType = make(map[reflect.Kind]uint8)
 
-var typeToNameValueType = map[string]int32 {
-	reflect.TypeOf(int32(1)).String()    : 3,
-	reflect.TypeOf(uint64(1)).String()   : 5,
-	reflect.TypeOf(float64(1.2)).String(): 10,
-	reflect.TypeOf([]byte{}).String()    : 11,
-	reflect.TypeOf("").String()       : 12,
-	reflect.TypeOf(uuid.UUID{}).String() : 13,
+var typeToNameValueType = map[string]int32{
+	reflect.TypeOf(int32(0)).String():    3,
+	reflect.TypeOf(uint64(0)).String():   5,
+	reflect.TypeOf(float64(0)).String():  10,
+	reflect.TypeOf([]byte{}).String():    11,
+	reflect.TypeOf("").String():          12,
+	reflect.TypeOf(uuid.UUID{}).String(): 13,
 }
 
 func init() {

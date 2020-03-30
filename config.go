@@ -47,6 +47,15 @@ func WithDataType(typ reflect.Type) TickFileConfig {
 			itemField.Type = kindToFieldType[reflect.Int64]
 			itemSection.Fields = append(itemSection.Fields, itemField)
 
+		case reflect.Float64:
+			itemSection.Info.FieldCount = 1
+			itemField := ItemSectionField{}
+			itemField.Name = typ.Name()
+			itemField.Offset = 0
+			itemField.Index = 0
+			itemField.Type = kindToFieldType[reflect.Float64]
+			itemSection.Fields = append(itemSection.Fields, itemField)
+
 		default:
 			panic(fmt.Sprintf("unsupported type: %s", typ.String()))
 
