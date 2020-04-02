@@ -219,11 +219,13 @@ func (tf *TickFile) Write(tick uint64, val interface{}) error {
 		return fmt.Errorf("this file has no item section")
 	}
 
-	expectedType := reflect.PtrTo(reflect.SliceOf(tf.dataType))
+	/*
+		expectedType := reflect.PtrTo(reflect.SliceOf(tf.dataType))
 
-	if reflect.TypeOf(val) != expectedType {
-		return fmt.Errorf("was expecting pointer to slice of %s, got %s", tf.dataType, reflect.TypeOf(val))
-	}
+		if reflect.TypeOf(val) != expectedType {
+			return fmt.Errorf("was expecting pointer to slice of %s, got %s", tf.dataType, reflect.TypeOf(val))
+		}
+	*/
 
 	if N := len(tf.Ticks); N > 0 && tick < tf.Ticks[N-1] {
 		return ErrTickOutOfOrder
