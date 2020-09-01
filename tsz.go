@@ -22,7 +22,7 @@ func CompressTicks(ticks []uint64) []byte {
 	bw.writeBits(tDelta, 64)
 
 	for i := 2; i < len(ticks); i++ {
-		dod := int64(ticks[i] - ticks[i-1]) - int64(tDelta)
+		dod := int64(ticks[i]-ticks[i-1]) - int64(tDelta)
 		switch {
 		case dod == 0:
 			bw.writeBit(zero)
@@ -116,7 +116,6 @@ func DecompressTicks(bytes []byte, count int) ([]uint64, error) {
 			}
 			dod = int64(bits)
 		}
-
 
 		tDelta = tDelta + uint64(dod)
 		ticks[i] = ticks[i-1] + tDelta
