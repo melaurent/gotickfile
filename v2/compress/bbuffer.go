@@ -52,8 +52,8 @@ func (b *BBuffer) Bytes() []byte {
 type bit bool
 
 const (
-	zero bit = false
-	one  bit = true
+	Zero bit = false
+	One  bit = true
 )
 
 func (b *BBuffer) WriteBit(bit bit) {

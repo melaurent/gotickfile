@@ -25,10 +25,10 @@ func NewUInt64Compress(val uint64, bw *BBuffer) *UInt64Compress {
 func (c *UInt64Compress) Compress(val uint64, bw *BBuffer) {
 	xor := val ^ c.lastVal
 	if xor == 0 {
-		bw.WriteBit(zero)
+		bw.WriteBit(Zero)
 		c.bucket1 += 1
 	} else {
-		bw.WriteBit(one)
+		bw.WriteBit(One)
 
 		leading := uint8(bits.LeadingZeros64(xor))
 		trailing := uint8(bits.TrailingZeros64(xor))
@@ -39,13 +39,13 @@ func (c *UInt64Compress) Compress(val uint64, bw *BBuffer) {
 
 		if c.leading != ^uint8(0) && leading >= c.leading && trailing >= c.trailing {
 			c.bucket2 += 1
-			bw.WriteBit(zero)
+			bw.WriteBit(Zero)
 			bw.WriteBits(xor>>c.trailing, 64-int(c.leading)-int(c.trailing))
 		} else {
 			c.bucket3 += 1
 			c.leading, c.trailing = leading, trailing
 
-			bw.WriteBit(one)
+			bw.WriteBit(One)
 			bw.WriteBits(uint64(leading), 5)
 
 			// Note that if leading == trailing == 0, then sigbits == 64.  But that value doesn't actually fit into the 6 bits we have.
@@ -60,7 +60,7 @@ func (c *UInt64Compress) Compress(val uint64, bw *BBuffer) {
 }
 
 type UInt64Decompress struct {
-	val      *uint64
+	lastVal  uint64
 	leading  uint8
 	trailing uint8
 }
@@ -72,27 +72,27 @@ func NewUInt64Decompress(br *BReader, ptr *uint64) (*UInt64Decompress, error) {
 	}
 	*ptr = val
 	return &UInt64Decompress{
-		val:      ptr,
+		lastVal:  val,
 		leading:  0,
 		trailing: 0,
 	}, nil
 }
 
-func (d *UInt64Decompress) Decompress(br *BReader) error {
+func (d *UInt64Decompress) Decompress(br *BReader, val *uint64) error {
 	// read compressed value
 	bit, err := br.ReadBit()
 	if err != nil {
 		return err
 	}
 
-	if bit == zero {
-		// it.val = it.val
+	if bit == Zero {
+		*val = d.lastVal
 	} else {
 		bit, err := br.ReadBit()
 		if err != nil {
 			return err
 		}
-		if bit == zero {
+		if bit == Zero {
 			// reuse leading/trailing zero bits
 			// it.leading, it.trailing = it.leading, it.trailing
 		} else {
@@ -119,7 +119,8 @@ func (d *UInt64Decompress) Decompress(br *BReader) error {
 		if err != nil {
 			return err
 		}
-		*d.val = *d.val ^ (bits << d.trailing)
+		*val = d.lastVal ^ (bits << d.trailing)
+		d.lastVal = *val
 	}
 
 	return nil
@@ -127,7 +128,7 @@ func (d *UInt64Decompress) Decompress(br *BReader) error {
 
 func (d *UInt64Decompress) ToCompress() Compress {
 	return &UInt64Compress{
-		lastVal:  *d.val,
+		lastVal:  d.lastVal,
 		leading:  d.leading,
 		trailing: d.trailing,
 	}

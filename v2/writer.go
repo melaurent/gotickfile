@@ -12,10 +12,10 @@ type CTickWriter struct {
 	structC *StructCompress
 }
 
-func NewCTickWriter(info *ItemSection, tick uint64, val reflect.Value, bw *compress.BBuffer) *CTickWriter {
+func NewCTickWriter(info *ItemSection, tick uint64, ptr uintptr, bw *compress.BBuffer) *CTickWriter {
 	ctw := &CTickWriter{
 		tickC:   compress.NewTickCompress(tick, bw),
-		structC: NewStructCompress(info, val, bw),
+		structC: NewStructCompress(info, ptr, bw),
 	}
 
 	return ctw
@@ -41,7 +41,7 @@ func CTickWriterFromBlock(info *ItemSection, typ reflect.Type, bw *compress.BBuf
 				return nil, err
 			}
 		}
-		err = structDec.Decompress(br)
+		_, err = structDec.Decompress(br)
 		if err != nil {
 			return nil, err
 		}
@@ -57,9 +57,9 @@ func CTickWriterFromBlock(info *ItemSection, typ reflect.Type, bw *compress.BBuf
 	}, nil
 }
 
-func (w *CTickWriter) Write(tick uint64, val reflect.Value, bw *compress.BBuffer) {
+func (w *CTickWriter) Write(tick uint64, ptr uintptr, bw *compress.BBuffer) {
 	w.tickC.Compress(tick, bw)
-	w.structC.Compress(val, bw)
+	w.structC.Compress(ptr, bw)
 }
 
 func (w *CTickWriter) Open(bw *compress.BBuffer) error {
@@ -71,11 +71,12 @@ func (w *CTickWriter) Close(bw *compress.BBuffer) {
 }
 
 type CTickReader struct {
-	Tick    uint64
-	Val     interface{}
-	br      *compress.BReader
-	tickC   *compress.TickDecompress
-	structC *StructDecompress
+	Tick     uint64
+	nextTick uint64
+	Val      TickDeltas
+	br       *compress.BReader
+	tickC    *compress.TickDecompress
+	structC  *StructDecompress
 }
 
 func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BReader) (*CTickReader, error) {
@@ -83,34 +84,86 @@ func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BReader) (
 	if err != nil {
 		return nil, err
 	}
-	structC, val, err := NewStructDecompress(info, typ, br)
+	structC, ptr, err := NewStructDecompress(info, typ, br)
 	if err != nil {
 		return nil, err
 	}
-	return &CTickReader{
-		Tick:    tick,
-		Val:     val,
+
+	r := &CTickReader{
+		Tick: tick,
+		Val: TickDeltas{
+			Pointer: ptr,
+			Len:     1,
+		},
 		br:      br,
 		tickC:   tickC,
 		structC: structC,
-	}, nil
+	}
+
+	// Read next tick
+	r.nextTick, err = tickC.Decompress(br)
+	if err != nil {
+		if err == io.EOF {
+			br.Rewind(5)
+			return r, nil
+		} else {
+			return nil, err
+		}
+	}
+	for r.Tick == r.nextTick {
+		r.Val.Pointer, err = structC.Decompress(br)
+		if err != nil {
+			return nil, err
+		}
+		r.Val.Len += 1
+		r.nextTick, err = tickC.Decompress(br)
+		if err != nil {
+			if err == io.EOF {
+				br.Rewind(5)
+				break
+			} else {
+				return nil, err
+			}
+		}
+	}
+
+	return r, nil
 }
 
 func (r *CTickReader) Next() error {
-	var err error
-	r.Tick, err = r.tickC.Decompress(r.br)
-
-	if err != nil {
-		if err == io.EOF {
-			// Rewind
-			r.br.Rewind(5)
+	// How can we know, here, if the tick was read last time ?
+	// If nextTick is zero, we failed reading nextTick last time
+	if r.nextTick == 0 {
+		var err error
+		r.nextTick, err = r.tickC.Decompress(r.br)
+		if err != nil {
+			if err == io.EOF {
+				r.br.Rewind(5)
+			}
+			return err
 		}
-		return err
 	}
-	err = r.structC.Decompress(r.br)
-	if err != nil {
-		return err
+	r.structC.Clear()
+	r.Val.Len = 0
+	r.Tick = r.nextTick
+	var err error
+	for r.Tick == r.nextTick {
+		r.Val.Pointer, err = r.structC.Decompress(r.br)
+		if err != nil {
+			return err
+		}
+		r.Val.Len += 1
+		r.nextTick, err = r.tickC.Decompress(r.br)
+		if err != nil {
+			if err == io.EOF {
+				r.br.Rewind(5)
+				break
+			} else {
+				return err
+			}
+		}
 	}
+
 	return nil
 }
 
@@ -128,7 +181,7 @@ type StructCompress struct {
 	writers []FieldWriter
 }
 
-func NewStructCompress(info *ItemSection, val reflect.Value, bw *compress.BBuffer) *StructCompress {
+func NewStructCompress(info *ItemSection, ptr uintptr, bw *compress.BBuffer) *StructCompress {
 	sc := &StructCompress{
 		writers: nil,
 	}
@@ -136,12 +189,10 @@ func NewStructCompress(info *ItemSection, val reflect.Value, bw *compress.BBuffe
 		var c compress.Compress
 		switch f.Type {
 		case UINT8, INT8:
-			ptr := val.Pointer() + uintptr(f.Offset)
 			// TODO
-			c = compress.NewUInt64Compress(*(*uint64)(unsafe.Pointer(ptr)), bw)
+			c = compress.NewUInt64Compress(*(*uint64)(unsafe.Pointer(ptr + uintptr(f.Offset))), bw)
 		case INT64, UINT64, FLOAT64:
-			ptr := val.Pointer() + uintptr(f.Offset)
-			c = compress.NewUInt64Compress(*(*uint64)(unsafe.Pointer(ptr)), bw)
+			c = compress.NewUInt64Compress(*(*uint64)(unsafe.Pointer(ptr + uintptr(f.Offset))), bw)
 		default:
 			panic("compression not supported")
 		}
@@ -154,8 +205,7 @@ func NewStructCompress(info *ItemSection, val reflect.Value, bw *compress.BBuffe
 	return sc
 }
 
-func (c *StructCompress) Compress(val reflect.Value, bw *compress.BBuffer) {
-	ptr := val.Pointer()
+func (c *StructCompress) Compress(ptr uintptr, bw *compress.BBuffer) {
 	for _, w := range c.writers {
 		w.c.Compress(*(*uint64)(unsafe.Pointer(ptr + w.offset)), bw)
 	}
@@ -163,51 +213,75 @@ func (c *StructCompress) Compress(val reflect.Value, bw *compress.BBuffer) {
 
 type StructDecompress struct {
 	readers []FieldReader
-	val     reflect.Value
+	val     []byte
+	uptr    unsafe.Pointer
+	offset  uintptr
+	size    uintptr
 }
 
-func NewStructDecompress(info *ItemSection, typ reflect.Type, br *compress.BReader) (*StructDecompress, interface{}, error) {
-	sc := &StructDecompress{
+func NewStructDecompress(info *ItemSection, typ reflect.Type, br *compress.BReader) (*StructDecompress, unsafe.Pointer, error) {
+	size := typ.Size()
+	sd := &StructDecompress{
 		readers: nil,
+		val:     make([]byte, size, size),
+		size:    size,
+		offset:  0,
 	}
-	sc.val = reflect.New(typ)
+	uptr := unsafe.Pointer(&sd.val[0])
+	sd.uptr = uptr
 
+	ptr := uintptr(uptr)
 	for _, f := range info.Fields {
 		var err error
 		var d compress.Decompress
 		switch f.Type {
 		case UINT8, INT8:
-			ptr := sc.val.Pointer() + uintptr(f.Offset)
+			ptr := ptr + uintptr(f.Offset)
 			// TODO
 			d, err = compress.NewUInt64Decompress(br, (*uint64)(unsafe.Pointer(ptr)))
 			if err != nil {
 				return nil, nil, err
 			}
 		case INT64, UINT64, FLOAT64:
-			ptr := sc.val.Pointer() + uintptr(f.Offset)
+			ptr := ptr + uintptr(f.Offset)
 			d, err = compress.NewUInt64Decompress(br, (*uint64)(unsafe.Pointer(ptr)))
 			if err != nil {
 				return nil, nil, err
 			}
+
 		default:
 			panic("compression not supported")
 		}
-		sc.readers = append(sc.readers, FieldReader{
+		sd.readers = append(sd.readers, FieldReader{
 			offset: uintptr(f.Offset),
 			d:      d,
 		})
 	}
+	sd.offset += size
 
-	return sc, sc.val.Interface(), nil
+	return sd, uptr, nil
 }
 
-func (d *StructDecompress) Decompress(br *compress.BReader) error {
+func (d *StructDecompress) Decompress(br *compress.BReader) (unsafe.Pointer, error) {
+	if int(d.offset) == cap(d.val) {
+		// Need to increase the buffer
+		val := make([]byte, 2*d.offset, 2*d.offset)
+		copy(val, d.val)
+		d.val = val
+		d.uptr = unsafe.Pointer(&val[0])
+	}
 	for _, r := range d.readers {
-		if err := r.d.Decompress(br); err != nil {
-			return err
+		uptr := unsafe.Pointer(uintptr(d.uptr) + d.offset + r.offset)
+		if err := r.d.Decompress(br, (*uint64)(uptr)); err != nil {
+			return d.uptr, err
 		}
 	}
-	return nil
+	d.offset += d.size
+	return d.uptr, nil
+}
+
+func (d *StructDecompress) Clear() {
+	d.offset = 0
 }
 
 func (d *StructDecompress) ToCompress() *StructCompress {

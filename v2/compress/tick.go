@@ -23,7 +23,7 @@ func (c *TickCompress) Compress(tick uint64, bw *BBuffer) {
 	dod := delta - c.lastDelta
 	switch {
 	case dod == 0:
-		bw.WriteBit(zero)
+		bw.WriteBit(Zero)
 	case -63 <= dod && dod <= 64:
 		bw.WriteBits(0x02, 2) // '10'
 		bw.WriteBits(uint64(dod), 7)
@@ -80,7 +80,7 @@ func (c *TickDecompress) Decompress(br *BReader) (uint64, error) {
 				return 0, err
 			}
 		}
-		if bit == zero {
+		if bit == Zero {
 			break
 		}
 		d |= 1

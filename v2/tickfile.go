@@ -35,6 +35,11 @@ func init() {
 	}
 }
 
+type TickDeltas struct {
+	Pointer unsafe.Pointer
+	Len     int
+}
+
 type Header struct {
 	MagicValue   int64
 	ItemStart    int64
@@ -251,7 +256,7 @@ func blockToBuffer(block []byte) (*compress.BBuffer, error) {
 }
 
 // ticks: ticks since epoch
-func (tf *TickFile) Write(tick uint64, val reflect.Value) error {
+func (tf *TickFile) Write(tick uint64, val TickDeltas) error {
 	if !tf.write {
 		return ErrReadOnly
 	}
@@ -272,10 +277,18 @@ func (tf *TickFile) Write(tick uint64, val reflect.Value) error {
 		return ErrTickOutOfOrder
 	}
 
+	size := tf.dataType.Size()
+	count := val.Len
+	ptr := uintptr(val.Pointer)
 	if tf.writer == nil {
-		tf.writer = NewCTickWriter(tf.itemSection, tick, val, tf.buffer)
-	} else {
-		tf.writer.Write(tick, val, tf.buffer)
+		tf.writer = NewCTickWriter(tf.itemSection, tick, ptr, tf.buffer)
+		ptr += size
+		count -= 1
+	}
+
+	for i := 0; i < count; i++ {
+		tf.writer.Write(tick, ptr, tf.buffer)
+		ptr += size
 	}
 	tf.lastTick = tick
 

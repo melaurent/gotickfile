@@ -5,6 +5,6 @@ type Compress interface {
 }
 
 type Decompress interface {
-	Decompress(*BReader) error
+	Decompress(*BReader, *uint64) error
 	ToCompress() Compress
 }

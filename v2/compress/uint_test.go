@@ -26,7 +26,7 @@ func TestUInt64Compress(t *testing.T) {
 		t.Fatalf("different tick")
 	}
 	for i := 1; i < len(ts1); i++ {
-		err = dc.Decompress(reader)
+		err = dc.Decompress(reader, &val)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -53,7 +53,7 @@ func TestUInt64Compress(t *testing.T) {
 		t.Fatalf("different tick")
 	}
 	for i := 1; i < len(ts1); i++ {
-		err = dc.Decompress(reader)
+		err = dc.Decompress(reader, &val)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -62,7 +62,7 @@ func TestUInt64Compress(t *testing.T) {
 		}
 	}
 	for i := 0; i < len(ts2); i++ {
-		err = dc.Decompress(reader)
+		err = dc.Decompress(reader, &val)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -98,7 +98,7 @@ func TestUInt64CompressFuzz(t *testing.T) {
 		t.Fatalf("different first tick")
 	}
 	for i := 1; i < len(ts); i++ {
-		err = dc.Decompress(reader)
+		err = dc.Decompress(reader, &val)
 		if err != nil {
 			t.Fatal(err)
 		}
