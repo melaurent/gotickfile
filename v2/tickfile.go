@@ -205,22 +205,28 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	}
 	tf.offset += int64(len(block))
 
-	// Create buffer from block
-	tf.block, err = blockToBuffer(block)
-	if err != nil {
-		return nil, err
+	if len(block) == 0 {
+		tf.block = compress.NewBBuffer(nil, 0)
+		tf.buffer = compress.NewBBuffer(nil, 0)
+	} else {
+		// Create buffer from block
+		tf.block, err = blockToBuffer(block)
+		if err != nil {
+			return nil, err
+		}
+		tf.buffer = tf.block.CloneTip(2)
+		// Read to the end
+		w, err := CTickWriterFromBlock(tf.itemSection, tf.dataType, tf.block)
+		if err != nil {
+			return nil, fmt.Errorf("error loading writer from block: %v", err)
+		}
+		// Open buffer
+		if err := w.Open(tf.buffer); err != nil {
+			return nil, fmt.Errorf("error opening buffer for writing: %v", err)
+		}
+		tf.writer = w
 	}
-	tf.buffer = tf.block.CloneTip(2)
-	// Read to the end
-	w, err := CTickWriterFromBlock(tf.itemSection, tf.dataType, tf.block)
-	if err != nil {
-		return nil, fmt.Errorf("error loading writer from block: %v", err)
-	}
-	// Open buffer
-	if err := w.Open(tf.buffer); err != nil {
-		return nil, fmt.Errorf("error opening buffer for writing: %v", err)
-	}
-	tf.writer = w
+
 	tf.tmpVal = reflect.New(tf.dataType)
 	return tf, nil
 }
@@ -326,11 +332,16 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	}
 	tf.offset += int64(len(block))
 
-	// Create buffer from block
-	tf.block, err = blockToBuffer(block)
-	if err != nil {
-		return nil, err
+	if len(block) == 0 {
+		tf.block = compress.NewBBuffer(nil, 0)
+	} else {
+		// Create buffer from block
+		tf.block, err = blockToBuffer(block)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	tf.tmpVal = reflect.New(tf.dataType)
 	return tf, nil
 }
@@ -353,10 +364,17 @@ func OpenHeader(file kafero.File) (*TickFile, error) {
 }
 
 func (tf *TickFile) GetReader() (*CTickReader, error) {
-	return NewCTickReader(tf.itemSection, tf.dataType, compress.NewBReader(tf.block))
+	if len(tf.block.Bytes()) == 0 {
+		return nil, io.EOF
+	} else {
+		return NewCTickReader(tf.itemSection, tf.dataType, compress.NewBReader(tf.block))
+	}
 }
 
 func (tf *TickFile) Flush() error {
+	if tf.writer == nil {
+		return nil
+	}
 	tf.writer.Close(tf.buffer)
 
 	// Flush to disk
