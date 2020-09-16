@@ -60,6 +60,7 @@ type TickFile struct {
 	nameValueSection          *NameValueSection
 	tagsSection               *TagsSection
 	contentDescriptionSection *ContentDescriptionSection
+	readerBroadcast           chan bool
 	tmpVal                    reflect.Value
 }
 
@@ -144,11 +145,11 @@ func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 	tf.lastTick = 0
 	tf.block = compress.NewBBuffer(nil, 0)
 	tf.buffer = compress.NewBBuffer(nil, 0)
-
 	if _, err := tf.file.Seek(tf.header.ItemStart, io.SeekStart); err != nil {
 		return nil, err
 	}
 	tf.offset = tf.header.ItemStart
+	tf.readerBroadcast = make(chan bool, 0)
 
 	return tf, nil
 }
@@ -343,6 +344,8 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	}
 
 	tf.tmpVal = reflect.New(tf.dataType)
+	tf.readerBroadcast = make(chan bool, 0)
+
 	return tf, nil
 }
 
@@ -364,11 +367,7 @@ func OpenHeader(file kafero.File) (*TickFile, error) {
 }
 
 func (tf *TickFile) GetReader() (*CTickReader, error) {
-	if len(tf.block.Bytes()) == 0 {
-		return nil, io.EOF
-	} else {
-		return NewCTickReader(tf.itemSection, tf.dataType, compress.NewBReader(tf.block))
-	}
+	return NewCTickReader(tf.itemSection, tf.dataType, compress.NewBReader(tf.block), tf.readerBroadcast)
 }
 
 func (tf *TickFile) Flush() error {
@@ -404,6 +403,15 @@ func (tf *TickFile) Flush() error {
 	// Re-open stream
 	if err := tf.writer.Open(tf.buffer); err != nil {
 		return err
+	}
+
+ForLoop:
+	for {
+		select {
+		case tf.readerBroadcast <- true:
+		default:
+			break ForLoop
+		}
 	}
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"github.com/melaurent/gotickfile/v2/compress"
 	"io"
 	"reflect"
+	"time"
 	"unsafe"
 )
 
@@ -72,99 +73,135 @@ func (w *CTickWriter) Close(bw *compress.BBuffer) {
 
 type CTickReader struct {
 	Tick     uint64
-	nextTick uint64
 	Val      TickDeltas
+	nextTick uint64
+	ch       chan bool
 	br       *compress.BReader
+	info     *ItemSection
+	typ      reflect.Type
 	tickC    *compress.TickDecompress
 	structC  *StructDecompress
 }
 
-func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BReader) (*CTickReader, error) {
-	tickC, tick, err := compress.NewTickDecompress(br)
-	if err != nil {
-		return nil, err
-	}
-	structC, ptr, err := NewStructDecompress(info, typ, br)
-	if err != nil {
-		return nil, err
-	}
-
+func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BReader, ch chan bool) (*CTickReader, error) {
 	r := &CTickReader{
-		Tick: tick,
+		Tick: 0,
 		Val: TickDeltas{
-			Pointer: ptr,
+			Pointer: nil,
 			Len:     1,
 		},
+		ch:      ch,
 		br:      br,
-		tickC:   tickC,
-		structC: structC,
-	}
-
-	// Read next tick
-	r.nextTick, err = tickC.Decompress(br)
-	if err != nil {
-		if err == io.EOF {
-			br.Rewind(5)
-			return r, nil
-		} else {
-			return nil, err
-		}
-	}
-	for r.Tick == r.nextTick {
-		r.Val.Pointer, err = structC.Decompress(br)
-		if err != nil {
-			return nil, err
-		}
-		r.Val.Len += 1
-		r.nextTick, err = tickC.Decompress(br)
-		if err != nil {
-			if err == io.EOF {
-				br.Rewind(5)
-				break
-			} else {
-				return nil, err
-			}
-		}
+		info:    info,
+		typ:     typ,
+		tickC:   nil,
+		structC: nil,
 	}
 
 	return r, nil
 }
 
 func (r *CTickReader) Next() error {
-	// How can we know, here, if the tick was read last time ?
-	// If nextTick is zero, we failed reading nextTick last time
-	if r.nextTick == 0 {
-		var err error
-		r.nextTick, err = r.tickC.Decompress(r.br)
-		if err != nil {
-			if err == io.EOF {
-				r.br.Rewind(5)
-			}
-			return err
+	if r.tickC == nil {
+		if len(r.br.Bytes()) == 0 {
+			return io.EOF
 		}
-	}
-	r.structC.Clear()
-	r.Val.Len = 0
-	r.Tick = r.nextTick
-	var err error
-	for r.Tick == r.nextTick {
-		r.Val.Pointer, err = r.structC.Decompress(r.br)
+		// First next
+		tickC, tick, err := compress.NewTickDecompress(r.br)
 		if err != nil {
 			return err
 		}
-		r.Val.Len += 1
-		r.nextTick, err = r.tickC.Decompress(r.br)
+		structC, ptr, err := NewStructDecompress(r.info, r.typ, r.br)
+		if err != nil {
+			return err
+		}
+
+		r.Tick = tick
+		r.tickC = tickC
+		r.structC = structC
+
+		r.Val.Pointer = ptr
+		r.Val.Len = 1
+
+		// Read next tick
+		r.nextTick, err = tickC.Decompress(r.br)
 		if err != nil {
 			if err == io.EOF {
 				r.br.Rewind(5)
-				break
+				return nil
 			} else {
 				return err
 			}
 		}
-	}
+		for r.Tick == r.nextTick {
+			r.Val.Pointer, err = structC.Decompress(r.br)
+			if err != nil {
+				return err
+			}
+			r.Val.Len += 1
+			r.nextTick, err = tickC.Decompress(r.br)
+			if err != nil {
+				if err == io.EOF {
+					r.br.Rewind(5)
+					break
+				} else {
+					return err
+				}
+			}
+		}
 
-	return nil
+		return nil
+	} else {
+		// How can we know, here, if the tick was read last time ?
+		// If nextTick is zero, we failed reading nextTick last time
+		// retry
+		if r.nextTick == 0 {
+			var err error
+			r.nextTick, err = r.tickC.Decompress(r.br)
+			if err != nil {
+				if err == io.EOF {
+					r.br.Rewind(5)
+				}
+				return err
+			}
+		}
+		r.structC.Clear()
+		r.Val.Len = 0
+		r.Tick = r.nextTick
+		var err error
+		for r.Tick == r.nextTick {
+			r.Val.Pointer, err = r.structC.Decompress(r.br)
+			if err != nil {
+				return err
+			}
+			r.Val.Len += 1
+			r.nextTick, err = r.tickC.Decompress(r.br)
+			if err != nil {
+				if err == io.EOF {
+					r.br.Rewind(5)
+					break
+				} else {
+					return err
+				}
+			}
+		}
+
+		return nil
+	}
+}
+
+func (r *CTickReader) NextTimeout(dur time.Duration) error {
+	err := r.Next()
+	if err == io.EOF {
+		select {
+		case <-r.ch:
+			return r.Next()
+		case <-time.After(dur):
+			return ErrReadTimeout
+		}
+	} else {
+		return err
+	}
 }
 
 type FieldWriter struct {
