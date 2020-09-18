@@ -59,15 +59,21 @@ func CTickWriterFromBlock(info *ItemSection, typ reflect.Type, bw *compress.BBuf
 }
 
 func (w *CTickWriter) Write(tick uint64, ptr uintptr, bw *compress.BBuffer) {
+	bw.Lock()
+	defer bw.Unlock()
 	w.tickC.Compress(tick, bw)
 	w.structC.Compress(ptr, bw)
 }
 
 func (w *CTickWriter) Open(bw *compress.BBuffer) error {
+	bw.Lock()
+	defer bw.Unlock()
 	return w.tickC.Open(bw)
 }
 
 func (w *CTickWriter) Close(bw *compress.BBuffer) {
+	bw.Lock()
+	defer bw.Unlock()
 	w.tickC.Close(bw)
 }
 
