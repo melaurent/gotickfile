@@ -227,11 +227,14 @@ func NewStructCompress(info *ItemSection, ptr uintptr, bw *compress.BBuffer) *St
 		switch f.Type {
 		case UINT8, INT8:
 			// TODO
-			c = compress.NewUInt64Compress(*(*uint64)(unsafe.Pointer(ptr + uintptr(f.Offset))), bw)
+			c = compress.GetCompress(*(*uint64)(unsafe.Pointer(ptr + uintptr(f.Offset))), bw, f.CompressionVersion)
 		case INT64, UINT64, FLOAT64:
-			c = compress.NewUInt64Compress(*(*uint64)(unsafe.Pointer(ptr + uintptr(f.Offset))), bw)
+			c = compress.GetCompress(*(*uint64)(unsafe.Pointer(ptr + uintptr(f.Offset))), bw, f.CompressionVersion)
 		default:
 			panic("compression not supported")
+		}
+		if c == nil {
+			panic("unknown compression")
 		}
 		sc.writers = append(sc.writers, FieldWriter{
 			offset: uintptr(f.Offset),
@@ -275,13 +278,13 @@ func NewStructDecompress(info *ItemSection, typ reflect.Type, br *compress.BRead
 		case UINT8, INT8:
 			ptr := ptr + uintptr(f.Offset)
 			// TODO
-			d, err = compress.NewUInt64Decompress(br, (*uint64)(unsafe.Pointer(ptr)))
+			d, err = compress.GetDecompress(br, (*uint64)(unsafe.Pointer(ptr)), f.CompressionVersion)
 			if err != nil {
 				return nil, nil, err
 			}
 		case INT64, UINT64, FLOAT64:
 			ptr := ptr + uintptr(f.Offset)
-			d, err = compress.NewUInt64Decompress(br, (*uint64)(unsafe.Pointer(ptr)))
+			d, err = compress.GetDecompress(br, (*uint64)(unsafe.Pointer(ptr)), f.CompressionVersion)
 			if err != nil {
 				return nil, nil, err
 			}

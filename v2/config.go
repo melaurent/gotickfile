@@ -2,6 +2,7 @@ package gotickfile
 
 import (
 	"fmt"
+	"github.com/melaurent/gotickfile/v2/compress"
 	"reflect"
 )
 
@@ -23,6 +24,7 @@ func WithDataType(typ reflect.Type) TickFileConfig {
 				itemField.Offset = uint32(dataField.Offset)
 				itemField.Index = uint32(fIdx)
 				itemField.Type = kindToFieldType[dataField.Type.Kind()]
+				itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
 				itemSection.Fields = append(itemSection.Fields, itemField)
 
 				fIdx += 1
@@ -36,6 +38,7 @@ func WithDataType(typ reflect.Type) TickFileConfig {
 			itemField.Offset = 0
 			itemField.Index = 0
 			itemField.Type = kindToFieldType[reflect.Uint64]
+			itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
 			itemSection.Fields = append(itemSection.Fields, itemField)
 
 		case reflect.Int64:
@@ -45,6 +48,7 @@ func WithDataType(typ reflect.Type) TickFileConfig {
 			itemField.Offset = 0
 			itemField.Index = 0
 			itemField.Type = kindToFieldType[reflect.Int64]
+			itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
 			itemSection.Fields = append(itemSection.Fields, itemField)
 
 		case reflect.Float64:
@@ -54,6 +58,7 @@ func WithDataType(typ reflect.Type) TickFileConfig {
 			itemField.Offset = 0
 			itemField.Index = 0
 			itemField.Type = kindToFieldType[reflect.Float64]
+			itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
 			itemSection.Fields = append(itemSection.Fields, itemField)
 
 		default:
@@ -81,6 +86,7 @@ func WithBasicType(typ reflect.Type) TickFileConfig {
 		if !ok {
 			panic(fmt.Sprintf("unsupported type: %s", typ.String()))
 		}
+		itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
 		itemSection.Fields = append(itemSection.Fields, itemField)
 		tf.itemSection = &itemSection
 	}

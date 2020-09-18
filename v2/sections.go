@@ -20,10 +20,11 @@ type ItemSectionInfo struct {
 }
 
 type ItemSectionField struct {
-	Index  uint32
-	Type   uint8
-	Offset uint32
-	Name   string
+	Index              uint32
+	Type               uint8
+	CompressionVersion uint8
+	Offset             uint32
+	Name               string
 }
 
 func (is *ItemSection) Read(r io.Reader, order binary.ByteOrder) error {
@@ -48,6 +49,7 @@ func (is *ItemSection) Read(r io.Reader, order binary.ByteOrder) error {
 		if err != nil {
 			return err
 		}
+		err = binary.Read(r, order, &f.CompressionVersion)
 		err = binary.Read(r, order, &f.Offset)
 		if err != nil {
 			return err
@@ -80,6 +82,7 @@ func (is *ItemSection) Write(w io.Writer, order binary.ByteOrder) error {
 		if err != nil {
 			return err
 		}
+		err = binary.Write(w, order, field.CompressionVersion)
 		err = binary.Write(w, order, field.Offset)
 		if err != nil {
 			return err
@@ -102,6 +105,8 @@ func (is *ItemSection) Size() int64 {
 	size += 4
 	for _, field := range is.Fields {
 		// FieldType
+		size += 1
+		// CompressionVersion
 		size += 1
 		// FieldOffset
 		size += 4

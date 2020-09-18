@@ -4,7 +4,7 @@ import (
 	"math/bits"
 )
 
-type UInt64Compress struct {
+type UInt64GorillaCompress struct {
 	lastVal  uint64
 	leading  uint8
 	trailing uint8
@@ -13,16 +13,16 @@ type UInt64Compress struct {
 	bucket3  int
 }
 
-func NewUInt64Compress(val uint64, bw *BBuffer) *UInt64Compress {
+func NewUInt64GorillaCompress(val uint64, bw *BBuffer) *UInt64GorillaCompress {
 	bw.WriteBits(val, 64)
-	return &UInt64Compress{
+	return &UInt64GorillaCompress{
 		lastVal:  val,
 		leading:  ^uint8(0),
 		trailing: 0,
 	}
 }
 
-func (c *UInt64Compress) Compress(val uint64, bw *BBuffer) {
+func (c *UInt64GorillaCompress) Compress(val uint64, bw *BBuffer) {
 	xor := val ^ c.lastVal
 	if xor == 0 {
 		bw.WriteBit(Zero)
@@ -59,26 +59,26 @@ func (c *UInt64Compress) Compress(val uint64, bw *BBuffer) {
 	}
 }
 
-type UInt64Decompress struct {
+type UInt64GorillaDecompress struct {
 	lastVal  uint64
 	leading  uint8
 	trailing uint8
 }
 
-func NewUInt64Decompress(br *BReader, ptr *uint64) (*UInt64Decompress, error) {
+func NewUInt64GorillaDecompress(br *BReader, ptr *uint64) (*UInt64GorillaDecompress, error) {
 	val, err := br.ReadBits(64)
 	if err != nil {
 		return nil, err
 	}
 	*ptr = val
-	return &UInt64Decompress{
+	return &UInt64GorillaDecompress{
 		lastVal:  val,
 		leading:  0,
 		trailing: 0,
 	}, nil
 }
 
-func (d *UInt64Decompress) Decompress(br *BReader, val *uint64) error {
+func (d *UInt64GorillaDecompress) Decompress(br *BReader, val *uint64) error {
 	// read compressed value
 	bit, err := br.ReadBit()
 	if err != nil {
@@ -126,8 +126,8 @@ func (d *UInt64Decompress) Decompress(br *BReader, val *uint64) error {
 	return nil
 }
 
-func (d *UInt64Decompress) ToCompress() Compress {
-	return &UInt64Compress{
+func (d *UInt64GorillaDecompress) ToCompress() Compress {
+	return &UInt64GorillaCompress{
 		lastVal:  d.lastVal,
 		leading:  d.leading,
 		trailing: d.trailing,
