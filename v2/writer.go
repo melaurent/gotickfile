@@ -66,14 +66,10 @@ func (w *CTickWriter) Write(tick uint64, ptr uintptr, bw *compress.BBuffer) {
 }
 
 func (w *CTickWriter) Open(bw *compress.BBuffer) error {
-	bw.Lock()
-	defer bw.Unlock()
 	return w.tickC.Open(bw)
 }
 
 func (w *CTickWriter) Close(bw *compress.BBuffer) {
-	bw.Lock()
-	defer bw.Unlock()
 	w.tickC.Close(bw)
 }
 
@@ -129,15 +125,14 @@ func (r *CTickReader) Next() error {
 		r.Val.Pointer = ptr
 		r.Val.Len = 1
 
+		if r.br.End() {
+			r.nextTick = 0
+			return nil
+		}
 		// Read next tick
 		r.nextTick, err = tickC.Decompress(r.br)
 		if err != nil {
-			if err == io.EOF {
-				r.br.Rewind(5)
-				return nil
-			} else {
-				return err
-			}
+			return err
 		}
 		for r.Tick == r.nextTick {
 			r.Val.Pointer, err = structC.Decompress(r.br)
@@ -145,14 +140,13 @@ func (r *CTickReader) Next() error {
 				return err
 			}
 			r.Val.Len += 1
+			if r.br.End() {
+				r.nextTick = 0
+				return nil
+			}
 			r.nextTick, err = tickC.Decompress(r.br)
 			if err != nil {
-				if err == io.EOF {
-					r.br.Rewind(5)
-					break
-				} else {
-					return err
-				}
+				return err
 			}
 		}
 
@@ -163,11 +157,12 @@ func (r *CTickReader) Next() error {
 		// retry
 		if r.nextTick == 0 {
 			var err error
+			if r.br.End() {
+				r.nextTick = 0
+				return nil
+			}
 			r.nextTick, err = r.tickC.Decompress(r.br)
 			if err != nil {
-				if err == io.EOF {
-					r.br.Rewind(5)
-				}
 				return err
 			}
 		}
@@ -181,14 +176,13 @@ func (r *CTickReader) Next() error {
 				return err
 			}
 			r.Val.Len += 1
+			if r.br.End() {
+				r.nextTick = 0
+				return nil
+			}
 			r.nextTick, err = r.tickC.Decompress(r.br)
 			if err != nil {
-				if err == io.EOF {
-					r.br.Rewind(5)
-					break
-				} else {
-					return err
-				}
+				return err
 			}
 		}
 

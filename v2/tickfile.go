@@ -349,6 +349,10 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Open block
+		if err := tf.block.Rewind(5); err != nil {
+			return nil, err
+		}
 	}
 
 	tf.tmpVal = reflect.New(tf.dataType)
@@ -382,7 +386,6 @@ func (tf *TickFile) Flush() error {
 	if tf.writer == nil {
 		return nil
 	}
-	tf.writer.Close(tf.block)
 
 	// Flush to disk
 	if tf.offset-tf.header.ItemStart > 2 {
@@ -398,6 +401,9 @@ func (tf *TickFile) Flush() error {
 		tf.offset -= 1
 		tf.lastWrite -= 1
 	}
+
+	tf.block.Lock()
+	tf.writer.Close(tf.block)
 	n, err := tf.file.Write(tf.block.Bytes()[tf.lastWrite:])
 	if err != nil {
 		return fmt.Errorf("error writing data block to file: %v", err)
@@ -409,6 +415,7 @@ func (tf *TickFile) Flush() error {
 	if err := tf.writer.Open(tf.block); err != nil {
 		return err
 	}
+	tf.block.Unlock()
 
 	return nil
 }
