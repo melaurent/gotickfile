@@ -2,10 +2,12 @@ package compress
 
 import (
 	"io"
+	"sync"
 )
 
 // bstream is a stream of bits
 type BBuffer struct {
+	sync.RWMutex
 	b     []byte // data
 	count uint8  // how many bits are valid in current byte
 }
@@ -15,12 +17,16 @@ func NewBBuffer(b []byte, c uint8) *BBuffer {
 }
 
 func (b *BBuffer) Clone() *BBuffer {
+	b.Lock()
+	defer b.Unlock()
 	d := make([]byte, len(b.b))
 	copy(d, b.b)
 	return &BBuffer{b: d, count: b.count}
 }
 
 func (b *BBuffer) CloneTip(size int) *BBuffer {
+	b.Lock()
+	defer b.Unlock()
 	l := len(b.b)
 	if l == 0 {
 		return &BBuffer{b: nil, count: 0}
@@ -38,6 +44,8 @@ func (b *BBuffer) CloneTip(size int) *BBuffer {
 }
 
 func (b *BBuffer) TrimTip(size int) {
+	b.Lock()
+	defer b.Unlock()
 	for len(b.b) > 0 && size > 0 {
 		b.b = b.b[:len(b.b)-1]
 		b.count = 0
@@ -57,6 +65,12 @@ const (
 )
 
 func (b *BBuffer) WriteBit(bit bit) {
+	b.Lock()
+	defer b.Unlock()
+	b.writeBit(bit)
+}
+
+func (b *BBuffer) writeBit(bit bit) {
 	if b.count == 0 {
 		b.b = append(b.b, 0)
 		b.count = 8
@@ -72,12 +86,20 @@ func (b *BBuffer) WriteBit(bit bit) {
 }
 
 func (b *BBuffer) WriteBytes(bytes []byte) {
+	b.Lock()
+	defer b.Unlock()
 	for _, byt := range bytes {
-		b.WriteByte(byt)
+		b.writeByte(byt)
 	}
 }
 
 func (b *BBuffer) WriteByte(byt byte) {
+	b.Lock()
+	defer b.Unlock()
+	b.writeByte(byt)
+}
+
+func (b *BBuffer) writeByte(byt byte) {
 
 	if b.count == 0 {
 		b.b = append(b.b, byt)
@@ -95,23 +117,26 @@ func (b *BBuffer) WriteByte(byt byte) {
 }
 
 func (b *BBuffer) WriteBits(u uint64, nbits int) {
-
+	b.Lock()
+	defer b.Unlock()
 	u <<= (64 - uint(nbits))
 	for nbits >= 8 {
 		byt := byte(u >> 56)
-		b.WriteByte(byt)
+		b.writeByte(byt)
 		u <<= 8
 		nbits -= 8
 	}
 
 	for nbits > 0 {
-		b.WriteBit((u >> 63) == 1)
+		b.writeBit((u >> 63) == 1)
 		u <<= 1
 		nbits--
 	}
 }
 
 func (b *BBuffer) Rewind(offset int) error {
+	b.Lock()
+	defer b.Unlock()
 	for offset >= int(8-b.count) {
 		offset -= int(8 - b.count)
 		// We have b.count bit written in the last byte
@@ -142,6 +167,8 @@ func NewBReader(buf *BBuffer) *BReader {
 }
 
 func (b *BReader) End() bool {
+	b.buffer.RLock()
+	defer b.buffer.RUnlock()
 	if len(b.buffer.Bytes()) == 0 {
 		return true
 	}
