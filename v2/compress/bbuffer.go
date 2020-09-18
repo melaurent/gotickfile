@@ -141,6 +141,13 @@ func NewBReader(buf *BBuffer) *BReader {
 	}
 }
 
+func (b *BReader) End() bool {
+	if len(b.buffer.Bytes()) == 0 {
+		return true
+	}
+	return (b.idx == len(b.buffer.Bytes())-1) && (b.count == b.buffer.count)
+}
+
 func (b *BReader) Bytes() []byte {
 	return b.buffer.Bytes()
 }

@@ -87,6 +87,7 @@ func TestCreate(t *testing.T) {
 	if err := tf.Close(); err != nil {
 		t.Fatal(err)
 	}
+	file.Close()
 
 	file, err = fs.Open("test.tick")
 	if err != nil {

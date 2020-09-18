@@ -52,8 +52,8 @@ type TickFile struct {
 	write                     bool
 	writer                    *CTickWriter
 	lastTick                  uint64
+	lastWrite                 int
 	block                     *compress.BBuffer
-	buffer                    *compress.BBuffer
 	dataType                  reflect.Type
 	header                    Header
 	itemSection               *ItemSection
@@ -144,7 +144,7 @@ func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 	tf.tmpVal = reflect.New(tf.dataType)
 	tf.lastTick = 0
 	tf.block = compress.NewBBuffer(nil, 0)
-	tf.buffer = compress.NewBBuffer(nil, 0)
+	tf.lastWrite = 0
 	if _, err := tf.file.Seek(tf.header.ItemStart, io.SeekStart); err != nil {
 		return nil, err
 	}
@@ -205,25 +205,24 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		return nil, err
 	}
 	tf.offset += int64(len(block))
+	tf.lastWrite = len(block)
 
 	if len(block) == 0 {
 		tf.block = compress.NewBBuffer(nil, 0)
-		tf.buffer = compress.NewBBuffer(nil, 0)
 	} else {
 		// Create buffer from block
 		tf.block, err = blockToBuffer(block)
 		if err != nil {
 			return nil, err
 		}
-		tf.buffer = tf.block.CloneTip(2)
 		// Read to the end
 		w, err := CTickWriterFromBlock(tf.itemSection, tf.dataType, tf.block)
 		if err != nil {
 			return nil, fmt.Errorf("error loading writer from block: %v", err)
 		}
-		// Open buffer
-		if err := w.Open(tf.buffer); err != nil {
-			return nil, fmt.Errorf("error opening buffer for writing: %v", err)
+		// Open block
+		if err := w.Open(tf.block); err != nil {
+			return nil, fmt.Errorf("error opening block for writing: %v", err)
 		}
 		tf.writer = w
 	}
@@ -288,18 +287,26 @@ func (tf *TickFile) Write(tick uint64, val TickDeltas) error {
 	count := val.Len
 	ptr := uintptr(val.Pointer)
 	if tf.writer == nil {
-		tf.writer = NewCTickWriter(tf.itemSection, tick, ptr, tf.buffer)
+		tf.writer = NewCTickWriter(tf.itemSection, tick, ptr, tf.block)
 		ptr += size
 		count -= 1
 	}
 
 	for i := 0; i < count; i++ {
-		tf.writer.Write(tick, ptr, tf.buffer)
+		tf.writer.Write(tick, ptr, tf.block)
 		ptr += size
 	}
 	tf.lastTick = tick
 
-	// TODO flush
+ForLoop:
+	for {
+		select {
+		case tf.readerBroadcast <- true:
+		default:
+			break ForLoop
+		}
+	}
+
 	return nil
 }
 
@@ -332,6 +339,7 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		return nil, err
 	}
 	tf.offset += int64(len(block))
+	tf.lastWrite = len(block)
 
 	if len(block) == 0 {
 		tf.block = compress.NewBBuffer(nil, 0)
@@ -374,7 +382,7 @@ func (tf *TickFile) Flush() error {
 	if tf.writer == nil {
 		return nil
 	}
-	tf.writer.Close(tf.buffer)
+	tf.writer.Close(tf.block)
 
 	// Flush to disk
 	if tf.offset-tf.header.ItemStart > 2 {
@@ -382,36 +390,24 @@ func (tf *TickFile) Flush() error {
 			return err
 		}
 		tf.offset -= 2
+		tf.lastWrite -= 2
 	} else if tf.offset-tf.header.ItemStart > 1 {
 		if _, err := tf.file.Seek(-1, io.SeekCurrent); err != nil {
 			return err
 		}
 		tf.offset -= 1
+		tf.lastWrite -= 1
 	}
-	if _, err := tf.file.Write(tf.buffer.Bytes()); err != nil {
+	n, err := tf.file.Write(tf.block.Bytes()[tf.lastWrite:])
+	if err != nil {
 		return fmt.Errorf("error writing data block to file: %v", err)
 	}
-	tf.offset += int64(len(tf.buffer.Bytes()))
+	tf.offset += int64(n)
+	tf.lastWrite += n
 
-	// Flush to block
-	if tf.block != nil {
-		tf.block.TrimTip(2)
-		tf.block.WriteBytes(tf.buffer.Bytes())
-	}
-
-	tf.buffer = tf.buffer.CloneTip(2)
 	// Re-open stream
-	if err := tf.writer.Open(tf.buffer); err != nil {
+	if err := tf.writer.Open(tf.block); err != nil {
 		return err
-	}
-
-ForLoop:
-	for {
-		select {
-		case tf.readerBroadcast <- true:
-		default:
-			break ForLoop
-		}
 	}
 
 	return nil

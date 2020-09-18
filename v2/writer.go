@@ -102,10 +102,10 @@ func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BReader, c
 }
 
 func (r *CTickReader) Next() error {
+	if r.br.End() {
+		return io.EOF
+	}
 	if r.tickC == nil {
-		if len(r.br.Bytes()) == 0 {
-			return io.EOF
-		}
 		// First next
 		tickC, tick, err := compress.NewTickDecompress(r.br)
 		if err != nil {

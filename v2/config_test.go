@@ -23,11 +23,11 @@ func TestWithDataType(t *testing.T) {
 			FieldCount:   5,
 		},
 		Fields: []ItemSectionField{
-			{Index: 0, Type: 8, Offset: 0, Name: "Time"},
-			{Index: 1, Type: 5, Offset: 8, Name: "Price"},
-			{Index: 2, Type: 8, Offset: 16, Name: "Volume"},
-			{Index: 3, Type: 5, Offset: 24, Name: "Prob"},
-			{Index: 4, Type: 8, Offset: 32, Name: "Prib"},
+			{Index: 0, Type: 8, CompressionVersion: 1, Offset: 0, Name: "Time"},
+			{Index: 1, Type: 5, CompressionVersion: 1, Offset: 8, Name: "Price"},
+			{Index: 2, Type: 8, CompressionVersion: 1, Offset: 16, Name: "Volume"},
+			{Index: 3, Type: 5, CompressionVersion: 1, Offset: 24, Name: "Prob"},
+			{Index: 4, Type: 8, CompressionVersion: 1, Offset: 32, Name: "Prib"},
 		},
 	}
 	file, err := fs.Create("test.tick")
