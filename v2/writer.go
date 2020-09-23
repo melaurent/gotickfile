@@ -1,6 +1,7 @@
 package gotickfile
 
 import (
+	"fmt"
 	"github.com/melaurent/gotickfile/v2/compress"
 	"io"
 	"reflect"
@@ -59,8 +60,6 @@ func CTickWriterFromBlock(info *ItemSection, typ reflect.Type, bw *compress.BBuf
 }
 
 func (w *CTickWriter) Write(tick uint64, ptr uintptr, bw *compress.BBuffer) {
-	bw.Lock()
-	defer bw.Unlock()
 	w.tickC.Compress(tick, bw)
 	w.structC.Compress(ptr, bw)
 }
@@ -111,11 +110,11 @@ func (r *CTickReader) Next() error {
 		// First next
 		tickC, tick, err := compress.NewTickDecompress(r.br)
 		if err != nil {
-			return err
+			return fmt.Errorf("error decompressing first tick: %v", err)
 		}
 		structC, ptr, err := NewStructDecompress(r.info, r.typ, r.br)
 		if err != nil {
-			return err
+			return fmt.Errorf("error decompressing first struct: %v", err)
 		}
 
 		r.Tick = tick
@@ -132,12 +131,12 @@ func (r *CTickReader) Next() error {
 		// Read next tick
 		r.nextTick, err = tickC.Decompress(r.br)
 		if err != nil {
-			return err
+			return fmt.Errorf("error decompressing tick: %v", err)
 		}
 		for r.Tick == r.nextTick {
 			r.Val.Pointer, err = structC.Decompress(r.br)
 			if err != nil {
-				return err
+				return fmt.Errorf("error decompressing struct: %v", err)
 			}
 			r.Val.Len += 1
 			if r.br.End() {
@@ -146,7 +145,7 @@ func (r *CTickReader) Next() error {
 			}
 			r.nextTick, err = tickC.Decompress(r.br)
 			if err != nil {
-				return err
+				return fmt.Errorf("error decompressing tick: %v", err)
 			}
 		}
 
@@ -163,7 +162,7 @@ func (r *CTickReader) Next() error {
 			}
 			r.nextTick, err = r.tickC.Decompress(r.br)
 			if err != nil {
-				return err
+				return fmt.Errorf("error decompressing tick: %v", err)
 			}
 		}
 		r.structC.Clear()
@@ -173,7 +172,7 @@ func (r *CTickReader) Next() error {
 		for r.Tick == r.nextTick {
 			r.Val.Pointer, err = r.structC.Decompress(r.br)
 			if err != nil {
-				return err
+				return fmt.Errorf("error decompressing struct: %v", err)
 			}
 			r.Val.Len += 1
 			if r.br.End() {
@@ -182,7 +181,7 @@ func (r *CTickReader) Next() error {
 			}
 			r.nextTick, err = r.tickC.Decompress(r.br)
 			if err != nil {
-				return err
+				return fmt.Errorf("error decompressing tick: %v", err)
 			}
 		}
 
@@ -280,13 +279,13 @@ func NewStructDecompress(info *ItemSection, typ reflect.Type, br *compress.BRead
 			// TODO
 			d, err = compress.GetDecompress(br, (*uint64)(unsafe.Pointer(ptr)), f.CompressionVersion)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, fmt.Errorf("error decompressing struct field: %v", err)
 			}
 		case INT64, UINT64, FLOAT64:
 			ptr := ptr + uintptr(f.Offset)
 			d, err = compress.GetDecompress(br, (*uint64)(unsafe.Pointer(ptr)), f.CompressionVersion)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, fmt.Errorf("error decompressing struct field: %v", err)
 			}
 
 		default:
@@ -313,7 +312,7 @@ func (d *StructDecompress) Decompress(br *compress.BReader) (unsafe.Pointer, err
 	for _, r := range d.readers {
 		uptr := unsafe.Pointer(uintptr(d.uptr) + d.offset + r.offset)
 		if err := r.d.Decompress(br, (*uint64)(uptr)); err != nil {
-			return d.uptr, err
+			return d.uptr, fmt.Errorf("error decompressing struct field: %v", err)
 		}
 	}
 	d.offset += d.size

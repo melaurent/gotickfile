@@ -146,10 +146,11 @@ func NewBReader(buf *BBuffer) *BReader {
 func (b *BReader) End() bool {
 	b.buffer.RLock()
 	defer b.buffer.RUnlock()
-	if len(b.buffer.Bytes()) == 0 {
+	N := len(b.buffer.b)
+	if N == 0 {
 		return true
 	}
-	return (b.idx == len(b.buffer.Bytes())-1) && (b.count == b.buffer.count)
+	return (b.idx == N-1) && (b.count == b.buffer.count)
 }
 
 func (b *BReader) Bytes() []byte {
