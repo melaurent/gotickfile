@@ -158,6 +158,14 @@ func (tf *TickFile) GetTags() map[string]string {
 	}
 }
 
+func (tf *TickFile) GetContentDescription() *string {
+	if tf.contentDescriptionSection != nil {
+		return &tf.contentDescriptionSection.ContentDescription
+	} else {
+		return nil
+	}
+}
+
 func (tf *TickFile) GetFile() kafero.File {
 	return tf.file
 }
