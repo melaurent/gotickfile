@@ -439,6 +439,9 @@ func (tf *TickFile) readHeader() error {
 		return err
 	}
 	if tf.header.MagicValue != 0x0d0e0a0402080502 {
+		if tf.header.MagicValue == 0x0d0e0a0402080500 {
+			return ErrTickFileV1
+		}
 		return fmt.Errorf("byteordermark mismatch")
 	}
 
