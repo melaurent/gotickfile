@@ -335,7 +335,7 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	}
 
 	if err := tf.readHeader(); err != nil {
-		return nil, fmt.Errorf("error reading file header: %v", err)
+		return nil, err
 	}
 
 	if err := tf.checkDataType(); err != nil {
