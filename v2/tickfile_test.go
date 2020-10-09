@@ -621,30 +621,19 @@ func TestReadSlice(t *testing.T) {
 }
 
 func TestFuzzWrite(t *testing.T) {
-	v1, err := fs.Create("v1.tick")
+	file, err := fs.Create("test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
-	v2, err := fs.Create("v2.tick")
-	if err != nil {
-		t.Fatalf("error creating file")
-	}
-	tags1 := map[string]string{
-		"tag1": "v1",
-		"tag2": "v2",
-	}
-	nv1 := map[string]interface{}{
-		"decimals": int32(2),
-		"url":      "www.acme.com",
-		"data":     []byte{0x00, 0x01},
-	}
-	desc1 := "prices of acme at NYSE"
-	tfv1, err := gotickfilev1.Create(
-		v1,
-		gotickfilev1.WithDataType(reflect.TypeOf(Data{})),
-		gotickfilev1.WithContentDescription(desc1),
-		gotickfilev1.WithTags(tags1),
-		gotickfilev1.WithNameValues(nv1))
+	tf, err := Create(
+		file,
+		WithDataType(reflect.TypeOf(Data{})),
+		WithContentDescription("prices of acme at NYSE"),
+		WithNameValues(map[string]interface{}{
+			"decimals": int32(2),
+			"url":      "www.acme.com",
+			"data":     []byte{0x00, 0x01},
+		}))
 	if err != nil {
 		t.Fatalf("error creating tickfile: %v", err)
 	}
@@ -658,51 +647,81 @@ func TestFuzzWrite(t *testing.T) {
 			Prob:   uint8(rand.Int()),
 			Prib:   uint64(rand.Int()),
 		}
-		deltas := []Data{delta}
-		if err := tfv1.Write(uint64(i), &deltas); err != nil {
+		val := TickDeltas{
+			Pointer: unsafe.Pointer(&delta),
+			Len:     1,
+		}
+		if err := tf.Write(uint64(i), val); err != nil {
 			t.Fatalf("error writing: %v", err)
 		}
 		goldenDeltas = append(goldenDeltas, delta)
-	}
 
-	if err := tfv1.Close(); err != nil {
+		// Randomly flush
+		if i%5 == rand.Intn(5) {
+			if err := tf.Flush(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		// Randomly verify
+		if i%5 == rand.Intn(5) {
+			if err := tf.Flush(); err != nil {
+				t.Fatal(err)
+			}
+			reader, err := tf.GetReader()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for j := range goldenDeltas {
+				if err := reader.Next(); err != nil {
+					t.Fatal(err)
+				}
+				if reader.Tick != uint64(j) || *(*Data)(reader.Val.Pointer) != goldenDeltas[j] {
+					t.Fatalf("got a different read than expected")
+				}
+			}
+		}
+		// Randomly close and open file
+		if i%5 == rand.Intn(5) {
+			if err := tf.Close(); err != nil {
+				t.Fatal(err)
+			}
+			tf, err = OpenRead(file, reflect.TypeOf(Data{}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			reader, err := tf.GetReader()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i := range goldenDeltas {
+				if err := reader.Next(); err != nil {
+					t.Fatal(err)
+				}
+				if reader.Tick != uint64(i) || *(*Data)(reader.Val.Pointer) != goldenDeltas[i] {
+					t.Fatalf("got a different read than expected")
+				}
+			}
+			if err := tf.Close(); err != nil {
+				t.Fatal(err)
+			}
+			tf, err = OpenWrite(file, reflect.TypeOf(Data{}))
+			if err != nil {
+				t.Fatalf("error opening tickfile in write mode: %v", err)
+			}
+		}
+	}
+	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
 	}
-
-	if err := V1ToV2(v2, v1, reflect.TypeOf(Data{})); err != nil {
-		t.Fatal(err)
-	}
-
-	tfv2, err := OpenRead(v2, reflect.TypeOf(Data{}))
+	reader, err := tf.GetReader()
 	if err != nil {
 		t.Fatal(err)
 	}
-	nv2 := tfv2.GetNameValues()
-	if !reflect.DeepEqual(nv1, nv2) {
-		t.Fatal("different name values")
-	}
-	tags2 := tfv2.GetTags()
-	if !reflect.DeepEqual(tags1, tags2) {
-		t.Fatal("different tags")
-	}
-	desc2 := tfv2.GetContentDescription()
-	if desc2 == nil {
-		t.Fatal("no description in v2")
-	}
-	if !reflect.DeepEqual(desc1, *desc2) {
-		t.Fatal("different description")
-	}
-
-	reader, err := tfv2.GetReader()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i := 0; i < len(goldenDeltas); i++ {
+	for i := range goldenDeltas {
 		if err := reader.Next(); err != nil {
 			t.Fatal(err)
 		}
 		if reader.Tick != uint64(i) || *(*Data)(reader.Val.Pointer) != goldenDeltas[i] {
-			fmt.Println(*(*Data)(reader.Val.Pointer), goldenDeltas[i])
 			t.Fatalf("got a different read than expected")
 		}
 	}
@@ -807,7 +826,91 @@ func TestConcurrent(t *testing.T) {
 }
 
 func TestV1ToV2(t *testing.T) {
+	v1, err := fs.Create("v1.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
+	v2, err := fs.Create("v2.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
+	tags1 := map[string]string{
+		"tag1": "v1",
+		"tag2": "v2",
+	}
+	nv1 := map[string]interface{}{
+		"decimals": int32(2),
+		"url":      "www.acme.com",
+		"data":     []byte{0x00, 0x01},
+	}
+	desc1 := "prices of acme at NYSE"
+	tfv1, err := gotickfilev1.Create(
+		v1,
+		gotickfilev1.WithDataType(reflect.TypeOf(Data{})),
+		gotickfilev1.WithContentDescription(desc1),
+		gotickfilev1.WithTags(tags1),
+		gotickfilev1.WithNameValues(nv1))
+	if err != nil {
+		t.Fatalf("error creating tickfile: %v", err)
+	}
 
+	var goldenDeltas []Data
+	for i := 0; i < 1000; i++ {
+		delta := Data{
+			Time:   uint64(i),
+			Price:  uint8(rand.Int()),
+			Volume: uint64(rand.Int()),
+			Prob:   uint8(rand.Int()),
+			Prib:   uint64(rand.Int()),
+		}
+		deltas := []Data{delta}
+		if err := tfv1.Write(uint64(i), &deltas); err != nil {
+			t.Fatalf("error writing: %v", err)
+		}
+		goldenDeltas = append(goldenDeltas, delta)
+	}
+
+	if err := tfv1.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := V1ToV2(v2, v1, reflect.TypeOf(Data{})); err != nil {
+		t.Fatal(err)
+	}
+
+	tfv2, err := OpenRead(v2, reflect.TypeOf(Data{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	nv2 := tfv2.GetNameValues()
+	if !reflect.DeepEqual(nv1, nv2) {
+		t.Fatal("different name values")
+	}
+	tags2 := tfv2.GetTags()
+	if !reflect.DeepEqual(tags1, tags2) {
+		t.Fatal("different tags")
+	}
+	desc2 := tfv2.GetContentDescription()
+	if desc2 == nil {
+		t.Fatal("no description in v2")
+	}
+	if !reflect.DeepEqual(desc1, *desc2) {
+		t.Fatal("different description")
+	}
+
+	reader, err := tfv2.GetReader()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < len(goldenDeltas); i++ {
+		if err := reader.Next(); err != nil {
+			t.Fatal(err)
+		}
+		if reader.Tick != uint64(i) || *(*Data)(reader.Val.Pointer) != goldenDeltas[i] {
+			fmt.Println(*(*Data)(reader.Val.Pointer), goldenDeltas[i])
+			t.Fatalf("got a different read than expected")
+		}
+	}
 }
 
 func BenchmarkWrite(b *testing.B) {
