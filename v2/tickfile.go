@@ -291,23 +291,25 @@ func (tf *TickFile) Write(tick uint64, val TickDeltas) error {
 		return ErrTickOutOfOrder
 	}
 
-	size := tf.dataType.Size()
 	count := val.Len
-	ptr := uintptr(val.Pointer)
-	if tf.writer == nil {
-		tf.block.Lock()
-		tf.writer = NewCTickWriter(tf.itemSection, tick, ptr, tf.block)
-		tf.block.Unlock()
-		ptr += size
-		count -= 1
-	}
+	if count > 0 {
+		size := tf.dataType.Size()
+		ptr := uintptr(val.Pointer)
+		if tf.writer == nil {
+			tf.block.Lock()
+			tf.writer = NewCTickWriter(tf.itemSection, tick, ptr, tf.block)
+			tf.block.Unlock()
+			ptr += size
+			count -= 1
+		}
 
-	tf.block.Lock()
-	for i := 0; i < count; i++ {
-		tf.writer.Write(tick, ptr, tf.block)
-		ptr += size
+		tf.block.Lock()
+		for i := 0; i < count; i++ {
+			tf.writer.Write(tick, ptr, tf.block)
+			ptr += size
+		}
+		tf.block.Unlock()
 	}
-	tf.block.Unlock()
 
 	tf.lastTick = tick
 
