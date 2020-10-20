@@ -145,14 +145,14 @@ func NewChunkReader(buf *BBuffer, chunckSize int) *ChunkReader {
 	}
 }
 
-func (r *ChunkReader) ReadChunk() ([]byte, uint8) {
+func (r *ChunkReader) ReadChunk() []byte {
 	r.buffer.RLock()
 	N := len(r.buffer.b)
 	count := r.buffer.count
 	r.buffer.RUnlock()
 
 	if (r.idx == N-1) && (r.count == count) {
-		return nil, 0
+		return nil
 	}
 	// No bit left to read at our index, next
 	if r.count == 0 {
@@ -163,10 +163,10 @@ func (r *ChunkReader) ReadChunk() ([]byte, uint8) {
 		M = r.chunkSize
 	}
 	// We can read
-	chunk := make([]byte, M, M)
+	chunk := make([]byte, M+1, M+1)
 	r.buffer.RLock()
 	for i := 0; i < M; i++ {
-		chunk[i] = r.buffer.b[r.idx+i]
+		chunk[i+1] = r.buffer.b[r.idx+i]
 	}
 	r.idx += M - 1
 	if r.idx == len(r.buffer.b)-1 {
@@ -175,10 +175,11 @@ func (r *ChunkReader) ReadChunk() ([]byte, uint8) {
 	} else {
 		r.count = 0
 	}
+	chunk[0] = r.count
 
 	r.buffer.RUnlock()
 
-	return chunk, r.count
+	return chunk
 }
 
 type ChunkWriter struct {
@@ -191,9 +192,9 @@ func NewChunkWriter(buf *BBuffer) *ChunkWriter {
 	}
 }
 
-func (w *ChunkWriter) WriteChunk(chunk []byte, count uint8) {
+func (w *ChunkWriter) WriteChunk(chunk []byte) {
 	w.buffer.Lock()
-	for i := 0; i < len(chunk); i++ {
+	for i := 1; i < len(chunk); i++ {
 		// count is bits left to write
 		if w.buffer.count == 0 {
 			w.buffer.b = append(w.buffer.b, chunk[i])
@@ -201,7 +202,7 @@ func (w *ChunkWriter) WriteChunk(chunk []byte, count uint8) {
 			w.buffer.b[len(w.buffer.b)-1] = chunk[i]
 		}
 	}
-	w.buffer.count = count
+	w.buffer.count = chunk[0]
 	w.buffer.Unlock()
 }
 

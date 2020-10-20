@@ -17,8 +17,8 @@ func TestNewChunkReader(t *testing.T) {
 		bit := rand.Int() % 2
 		buff.WriteBit(bit == 0)
 		// Check
-		chunk, count := cr.ReadChunk()
-		cw.WriteChunk(chunk, count)
+		chunk := cr.ReadChunk()
+		cw.WriteChunk(chunk)
 		if !reflect.DeepEqual(buff.b, buff2.b) {
 			fmt.Println(buff.b, buff2.b)
 			t.Fatal("different buffers")
@@ -39,10 +39,10 @@ func TestNewChunkReader(t *testing.T) {
 		buff2 = NewBBuffer(nil, 0)
 		cw = NewChunkWriter(buff2)
 		// Check
-		chunk, count := cr.ReadChunk()
+		chunk := cr.ReadChunk()
 		for chunk != nil {
-			cw.WriteChunk(chunk, count)
-			chunk, count = cr.ReadChunk()
+			cw.WriteChunk(chunk)
+			chunk = cr.ReadChunk()
 		}
 		if !reflect.DeepEqual(buff.b, buff2.b) {
 			t.Fatal("different buffers")
