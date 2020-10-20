@@ -142,16 +142,16 @@ func (r *CTickReader) NextTimeout(dur time.Duration) error {
 type ChunkReader struct {
 	ch    chan bool
 	r     *compress.ChunkReader
-	chunk []byte
-	count uint8
+	Chunk []byte
+	Count uint8
 }
 
 func NewChunkReader(br *compress.ChunkReader, ch chan bool) *ChunkReader {
 	return &ChunkReader{
 		ch:    ch,
 		r:     br,
-		chunk: nil,
-		count: 0,
+		Chunk: nil,
+		Count: 0,
 	}
 }
 
@@ -160,8 +160,8 @@ func (r *ChunkReader) Next() error {
 	if chunk == nil {
 		return io.EOF
 	}
-	r.chunk = chunk
-	r.count = count
+	r.Chunk = chunk
+	r.Count = count
 	return nil
 }
 
