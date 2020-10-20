@@ -138,3 +138,43 @@ func (r *CTickReader) NextTimeout(dur time.Duration) error {
 		return err
 	}
 }
+
+type ChunkReader struct {
+	ch    chan bool
+	r     *compress.ChunkReader
+	chunk []byte
+	count uint8
+}
+
+func NewChunkReader(br *compress.ChunkReader, ch chan bool) *ChunkReader {
+	return &ChunkReader{
+		ch:    ch,
+		r:     br,
+		chunk: nil,
+		count: 0,
+	}
+}
+
+func (r *ChunkReader) Next() error {
+	chunk, count := r.r.ReadChunk()
+	if chunk == nil {
+		return io.EOF
+	}
+	r.chunk = chunk
+	r.count = count
+	return nil
+}
+
+func (r *ChunkReader) NextTimeout(dur time.Duration) error {
+	err := r.Next()
+	if err == io.EOF {
+		select {
+		case <-r.ch:
+			return r.Next()
+		case <-time.After(dur):
+			return ErrReadTimeout
+		}
+	} else {
+		return err
+	}
+}
