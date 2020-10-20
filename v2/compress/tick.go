@@ -56,7 +56,7 @@ type TickDecompress struct {
 	lastDelta int64
 }
 
-func NewTickDecompress(br *BReader) (*TickDecompress, uint64, error) {
+func NewTickDecompress(br *BitReader) (*TickDecompress, uint64, error) {
 	t, err := br.ReadBits(64)
 	if err != nil {
 		return nil, 0, err
@@ -68,7 +68,7 @@ func NewTickDecompress(br *BReader) (*TickDecompress, uint64, error) {
 	return td, t, nil
 }
 
-func (c *TickDecompress) Decompress(br *BReader) (uint64, error) {
+func (c *TickDecompress) Decompress(br *BitReader) (uint64, error) {
 	var d byte
 	for i := 0; i < 5; i++ {
 		d <<= 1

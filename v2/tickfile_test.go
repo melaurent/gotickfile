@@ -130,7 +130,7 @@ func TestCreate(t *testing.T) {
 			tf.contentDescriptionSection)
 	}
 
-	reader, err := tf.GetReader()
+	reader, err := tf.GetTickReader()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestBasicKind(t *testing.T) {
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := tf.GetReader()
+	reader, err := tf.GetTickReader()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +215,7 @@ func TestOpenWrite(t *testing.T) {
 		t.Fatalf("error opening tickfile: %v", err)
 	}
 
-	reader, err := tf.GetReader()
+	reader, err := tf.GetTickReader()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,7 +300,7 @@ func TestAppend(t *testing.T) {
 		t.Fatalf("error opening tickfile for reading: %v", err)
 	}
 
-	reader, err := tf.GetReader()
+	reader, err := tf.GetTickReader()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +369,7 @@ func TestCreate2(t *testing.T) {
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := tf.GetReader()
+	reader, err := tf.GetTickReader()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -488,7 +488,7 @@ func TestRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error opening tickfile: %v", err)
 	}
-	reader, err := tf.GetReader()
+	reader, err := tf.GetTickReader()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -543,7 +543,7 @@ func TestReadWriteMode(t *testing.T) {
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := tf.GetReader()
+	reader, err := tf.GetTickReader()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -597,7 +597,7 @@ func TestReadSlice(t *testing.T) {
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := tf.GetReader()
+	reader, err := tf.GetTickReader()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -667,7 +667,7 @@ func TestFuzzWrite(t *testing.T) {
 			if err := tf.Flush(); err != nil {
 				t.Fatal(err)
 			}
-			reader, err := tf.GetReader()
+			reader, err := tf.GetTickReader()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -689,7 +689,7 @@ func TestFuzzWrite(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			reader, err := tf.GetReader()
+			reader, err := tf.GetTickReader()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -713,7 +713,7 @@ func TestFuzzWrite(t *testing.T) {
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := tf.GetReader()
+	reader, err := tf.GetTickReader()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -770,7 +770,7 @@ func TestConcurrent(t *testing.T) {
 
 	fn := func() {
 		defer wg.Done()
-		reader, err := tf.GetReader()
+		reader, err := tf.GetTickReader()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -898,7 +898,7 @@ func TestV1ToV2(t *testing.T) {
 		t.Fatal("different description")
 	}
 
-	reader, err := tfv2.GetReader()
+	reader, err := tfv2.GetTickReader()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -978,7 +978,7 @@ func BenchmarkRead(b *testing.B) {
 	if err := tf.Flush(); err != nil {
 		b.Fatal(err)
 	}
-	reader, err := tf.GetReader()
+	reader, err := tf.GetTickReader()
 	if err != nil {
 		b.Fatal(err)
 	}

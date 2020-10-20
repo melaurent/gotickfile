@@ -5,7 +5,7 @@ type Compress interface {
 }
 
 type Decompress interface {
-	Decompress(*BReader, *uint64) error
+	Decompress(*BitReader, *uint64) error
 	ToCompress() Compress
 }
 
@@ -22,7 +22,7 @@ func GetCompress(val uint64, bw *BBuffer, version uint8) Compress {
 	}
 }
 
-func GetDecompress(br *BReader, ptr *uint64, version uint8) (Decompress, error) {
+func GetDecompress(br *BitReader, ptr *uint64, version uint8) (Decompress, error) {
 	switch version {
 	case UINT64_GORILLA_COMPRESS:
 		return NewUInt64GorillaDecompress(br, ptr)

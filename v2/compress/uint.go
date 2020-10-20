@@ -65,7 +65,7 @@ type UInt64GorillaDecompress struct {
 	trailing uint8
 }
 
-func NewUInt64GorillaDecompress(br *BReader, ptr *uint64) (*UInt64GorillaDecompress, error) {
+func NewUInt64GorillaDecompress(br *BitReader, ptr *uint64) (*UInt64GorillaDecompress, error) {
 	val, err := br.ReadBits(64)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func NewUInt64GorillaDecompress(br *BReader, ptr *uint64) (*UInt64GorillaDecompr
 	}, nil
 }
 
-func (d *UInt64GorillaDecompress) Decompress(br *BReader, val *uint64) error {
+func (d *UInt64GorillaDecompress) Decompress(br *BitReader, val *uint64) error {
 	// read compressed value
 	bit, err := br.ReadBit()
 	if err != nil {

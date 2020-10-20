@@ -5,6 +5,13 @@ import (
 	"sync"
 )
 
+type bit bool
+
+const (
+	Zero bit = false
+	One  bit = true
+)
+
 // bstream is a stream of bits
 type BBuffer struct {
 	sync.RWMutex
@@ -50,13 +57,6 @@ func (b *BBuffer) TrimTip(size int) {
 func (b *BBuffer) Bytes() []byte {
 	return b.b
 }
-
-type bit bool
-
-const (
-	Zero bit = false
-	One  bit = true
-)
 
 func (b *BBuffer) WriteBit(bit bit) {
 	if b.count == 0 {
@@ -129,21 +129,97 @@ func (b *BBuffer) Rewind(offset int) error {
 	return nil
 }
 
-type BReader struct {
+type ChunkReader struct {
+	buffer    *BBuffer
+	count     uint8
+	idx       int
+	chunkSize int
+}
+
+func NewChunkReader(buf *BBuffer, chunckSize int) *ChunkReader {
+	return &ChunkReader{
+		buffer:    buf,
+		count:     8,
+		idx:       0,
+		chunkSize: chunckSize,
+	}
+}
+
+func (r *ChunkReader) ReadChunk() ([]byte, uint8) {
+	r.buffer.RLock()
+	N := len(r.buffer.b)
+	count := r.buffer.count
+	r.buffer.RUnlock()
+
+	if (r.idx == N-1) && (r.count == count) {
+		return nil, 0
+	}
+	// No bit left to read at our index, next
+	if r.count == 0 {
+		r.idx += 1
+	}
+	M := N - r.idx
+	if M > r.chunkSize {
+		M = r.chunkSize
+	}
+	// We can read
+	chunk := make([]byte, M, M)
+	r.buffer.RLock()
+	for i := 0; i < M; i++ {
+		chunk[i] = r.buffer.b[r.idx+i]
+	}
+	r.idx += M - 1
+	if r.idx == len(r.buffer.b)-1 {
+		// If we are at the end, we have the count of the buffer
+		r.count = r.buffer.count
+	} else {
+		r.count = 0
+	}
+
+	r.buffer.RUnlock()
+
+	return chunk, r.count
+}
+
+type ChunkWriter struct {
+	buffer *BBuffer
+}
+
+func NewChunkWriter(buf *BBuffer) *ChunkWriter {
+	return &ChunkWriter{
+		buffer: buf,
+	}
+}
+
+func (w *ChunkWriter) WriteChunk(chunk []byte, count uint8) {
+	w.buffer.Lock()
+	for i := 0; i < len(chunk); i++ {
+		// count is bits left to write
+		if w.buffer.count == 0 {
+			w.buffer.b = append(w.buffer.b, chunk[i])
+		} else {
+			w.buffer.b[len(w.buffer.b)-1] = chunk[i]
+		}
+	}
+	w.buffer.count = count
+	w.buffer.Unlock()
+}
+
+type BitReader struct {
 	buffer *BBuffer
 	count  uint8
 	idx    int
 }
 
-func NewBReader(buf *BBuffer) *BReader {
-	return &BReader{
+func NewBitReader(buf *BBuffer) *BitReader {
+	return &BitReader{
 		buffer: buf,
 		idx:    0,
 		count:  8,
 	}
 }
 
-func (b *BReader) End() bool {
+func (b *BitReader) End() bool {
 	b.buffer.RLock()
 	defer b.buffer.RUnlock()
 	N := len(b.buffer.b)
@@ -153,11 +229,11 @@ func (b *BReader) End() bool {
 	return (b.idx == N-1) && (b.count == b.buffer.count)
 }
 
-func (b *BReader) Bytes() []byte {
+func (b *BitReader) Bytes() []byte {
 	return b.buffer.Bytes()
 }
 
-func (b *BReader) Rewind(nbits uint) {
+func (b *BitReader) Rewind(nbits uint) {
 	for nbits >= 8 {
 		b.idx -= 1
 		nbits -= 8
@@ -171,7 +247,7 @@ func (b *BReader) Rewind(nbits uint) {
 	}
 }
 
-func (b *BReader) ReadBit() (bit, error) {
+func (b *BitReader) ReadBit() (bit, error) {
 
 	if len(b.buffer.b) == b.idx {
 		return false, io.EOF
@@ -192,7 +268,7 @@ func (b *BReader) ReadBit() (bit, error) {
 	return d != 0, nil
 }
 
-func (b *BReader) ReadByte() (byte, error) {
+func (b *BitReader) ReadByte() (byte, error) {
 
 	if len(b.buffer.b) == b.idx {
 		return 0, io.EOF
@@ -224,7 +300,7 @@ func (b *BReader) ReadByte() (byte, error) {
 	return byt2, nil
 }
 
-func (b *BReader) ReadBits(nbits int) (uint64, error) {
+func (b *BitReader) ReadBits(nbits int) (uint64, error) {
 
 	var u uint64
 

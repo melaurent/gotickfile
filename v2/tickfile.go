@@ -393,8 +393,8 @@ func OpenHeader(file kafero.File) (*TickFile, error) {
 	return tf, nil
 }
 
-func (tf *TickFile) GetReader() (*CTickReader, error) {
-	return NewCTickReader(tf.itemSection, tf.dataType, compress.NewBReader(tf.block), tf.readerBroadcast)
+func (tf *TickFile) GetTickReader() (*CTickReader, error) {
+	return NewCTickReader(tf.itemSection, tf.dataType, compress.NewBitReader(tf.block), tf.readerBroadcast)
 }
 
 func (tf *TickFile) Flush() error {

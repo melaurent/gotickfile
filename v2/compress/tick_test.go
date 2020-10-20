@@ -15,7 +15,7 @@ func TestCompress(t *testing.T) {
 		c.Compress(ts1[i], buf)
 	}
 	c.Close(buf)
-	reader := NewBReader(buf)
+	reader := NewBitReader(buf)
 
 	dc, tick, err := NewTickDecompress(reader)
 	if err != nil {
@@ -52,7 +52,7 @@ func TestCompress(t *testing.T) {
 	}
 	c.Close(buf)
 
-	reader = NewBReader(buf)
+	reader = NewBitReader(buf)
 	dc, tick, err = NewTickDecompress(reader)
 	if err != nil {
 		t.Fatal(err)
@@ -101,7 +101,7 @@ func TestCompressFuzz(t *testing.T) {
 
 	fmt.Println(float64(len(buf.b)) / (8. * 40000000.))
 
-	reader := NewBReader(buf)
+	reader := NewBitReader(buf)
 
 	dc, tick, err := NewTickDecompress(reader)
 	if err != nil {

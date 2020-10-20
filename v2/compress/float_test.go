@@ -15,15 +15,15 @@ type OBDelta struct {
 func TestFloat64Compress(t *testing.T) {
 	ts1 := []float64{0, 10, 15, 20, 25, 30, 35, 40, 40, 40, 41}
 	buf := NewBBuffer(nil, 0)
-	c := NewUInt64Compress(math.Float64bits(ts1[0]), buf)
+	c := NewUInt64GorillaCompress(math.Float64bits(ts1[0]), buf)
 	for i := 1; i < len(ts1); i++ {
 		c.Compress(math.Float64bits(ts1[i]), buf)
 	}
 	fmt.Println(len(buf.b))
-	reader := NewBReader(buf)
+	reader := NewBitReader(buf)
 
 	var val uint64
-	dc, err := NewUInt64Decompress(reader, &val)
+	dc, err := NewUInt64GorillaDecompress(reader, &val)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,14 +43,14 @@ func TestFloat64Compress(t *testing.T) {
 	ts2 := []uint64{42, 43, 45, 46}
 
 	// Start writing again
-	c = dc.ToCompress().(*UInt64Compress)
+	c = dc.ToCompress().(*UInt64GorillaCompress)
 
 	for i := 0; i < len(ts2); i++ {
 		c.Compress(ts2[i], buf)
 	}
 
-	reader = NewBReader(buf)
-	dc, err = NewUInt64Decompress(reader, &val)
+	reader = NewBitReader(buf)
+	dc, err = NewUInt64GorillaDecompress(reader, &val)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,16 +86,16 @@ func TestFloat64CompressFuzz(t *testing.T) {
 		ts[i] = tmp
 	}
 	buf := NewBBuffer(nil, 0)
-	c := NewUInt64Compress(math.Float64bits(ts[0]), buf)
+	c := NewUInt64GorillaCompress(math.Float64bits(ts[0]), buf)
 	for i := 1; i < len(ts); i++ {
 		c.Compress(math.Float64bits(ts[i]), buf)
 	}
 
 	fmt.Println(float64(len(buf.b))/(8.*40000000.), c.bucket1, c.bucket2, c.bucket3)
-	reader := NewBReader(buf)
+	reader := NewBitReader(buf)
 
 	var val uint64
-	dc, err := NewUInt64Decompress(reader, &val)
+	dc, err := NewUInt64GorillaDecompress(reader, &val)
 	if err != nil {
 		t.Fatal(err)
 	}
