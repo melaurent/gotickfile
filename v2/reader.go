@@ -143,7 +143,6 @@ type ChunkReader struct {
 	ch    chan bool
 	r     *compress.ChunkReader
 	Chunk []byte
-	Count uint8
 }
 
 func NewChunkReader(br *compress.ChunkReader, ch chan bool) *ChunkReader {
@@ -151,17 +150,15 @@ func NewChunkReader(br *compress.ChunkReader, ch chan bool) *ChunkReader {
 		ch:    ch,
 		r:     br,
 		Chunk: nil,
-		Count: 0,
 	}
 }
 
 func (r *ChunkReader) Next() error {
-	chunk, count := r.r.ReadChunk()
+	chunk := r.r.ReadChunk()
 	if chunk == nil {
 		return io.EOF
 	}
 	r.Chunk = chunk
-	r.Count = count
 	return nil
 }
 
