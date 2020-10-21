@@ -69,7 +69,7 @@ type TickFileConfig func(file *TickFile)
 func WithDataType(typ reflect.Type) TickFileConfig {
 	return func(tf *TickFile) {
 		tf.dataType = typ
-		itemSection, err := typeToItemSection(typ)
+		itemSection, err := TypeToItemSection(typ)
 		if err != nil {
 			panic(err)
 		}
