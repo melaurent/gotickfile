@@ -6,7 +6,7 @@ import (
 	"reflect"
 )
 
-func typeToItemSection(typ reflect.Type) (*ItemSection, error) {
+func TypeToItemSection(typ reflect.Type) (*ItemSection, error) {
 	itemSection := ItemSection{}
 	itemSection.Info.ItemSize = uint32(typ.Size())
 	itemSection.Info.ItemTypeName = typ.Name()
