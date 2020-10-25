@@ -200,6 +200,7 @@ func (w *ChunkWriter) WriteChunk(chunk []byte) {
 			w.buffer.b = append(w.buffer.b, chunk[i])
 		} else {
 			w.buffer.b[len(w.buffer.b)-1] = chunk[i]
+			w.buffer.count = 0
 		}
 	}
 	w.buffer.count = chunk[0]
@@ -212,12 +213,29 @@ type BitReader struct {
 	idx    int
 }
 
+type BitReaderState struct {
+	idx   int
+	count uint8
+}
+
 func NewBitReader(buf *BBuffer) *BitReader {
 	return &BitReader{
 		buffer: buf,
 		idx:    0,
 		count:  8,
 	}
+}
+
+func (b *BitReader) State() BitReaderState {
+	return BitReaderState{
+		idx:   b.idx,
+		count: b.count,
+	}
+}
+
+func (b *BitReader) Reset(state BitReaderState) {
+	b.idx = state.idx
+	b.count = state.count
 }
 
 func (b *BitReader) End() bool {

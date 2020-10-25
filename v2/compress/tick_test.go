@@ -85,7 +85,7 @@ func TestCompress(t *testing.T) {
 }
 
 func TestCompressFuzz(t *testing.T) {
-	N := 40000000
+	N := 4000
 	var tmp uint64 = 0
 	ts := make([]uint64, N)
 	for i := 0; i < N; i++ {
@@ -96,31 +96,71 @@ func TestCompressFuzz(t *testing.T) {
 	c := NewTickCompress(ts[0], buf)
 	for i := 1; i < len(ts); i++ {
 		c.Compress(ts[i], buf)
+
+		reader := NewBitReader(buf)
+
+		dc, tick, err := NewTickDecompress(reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if tick != ts[0] {
+			t.Fatalf("different first tick")
+		}
+		for j := 1; j <= i; j++ {
+			tick, err = dc.Decompress(reader)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tick != ts[j] {
+				t.Fatalf("different tick")
+			}
+		}
 	}
 	c.Close(buf)
 
 	fmt.Println(float64(len(buf.b)) / (8. * 40000000.))
+}
 
-	reader := NewBitReader(buf)
+func TestCompressChunkFuzz(t *testing.T) {
+	N := 4000
+	var tmp uint64 = 0
+	ts := make([]uint64, N)
+	for i := 0; i < N; i++ {
+		tmp += uint64(rand.Int31n(10000))
+		ts[i] = tmp
+	}
+	buf := NewBBuffer(nil, 0)
+	reader := NewChunkReader(buf, 16)
 
-	dc, tick, err := NewTickDecompress(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if tick != ts[0] {
-		t.Fatalf("different first tick")
-	}
+	buf2 := NewBBuffer(nil, 0)
+	writer := NewChunkWriter(buf2)
+	c := NewTickCompress(ts[0], buf)
 	for i := 1; i < len(ts); i++ {
-		tick, err = dc.Decompress(reader)
+		c.Compress(ts[i], buf)
+
+		chunk := reader.ReadChunk()
+		writer.WriteChunk(chunk)
+
+		br := NewBitReader(buf2)
+		dc, tick, err := NewTickDecompress(br)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if tick != ts[i] {
-			t.Fatalf("different tick")
+		if tick != ts[0] {
+			t.Fatalf("different first tick")
+		}
+		for j := 1; j <= i; j++ {
+			tick, err = dc.Decompress(br)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tick != ts[j] {
+				fmt.Println(buf.b, buf2.b)
+				t.Fatalf("different tick")
+			}
 		}
 	}
-	_, err = dc.Decompress(reader)
-	if err != io.EOF {
-		t.Fatal(err)
-	}
+	c.Close(buf)
+
+	fmt.Println(float64(len(buf.b)) / (8. * 40000000.))
 }

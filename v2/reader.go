@@ -23,6 +23,12 @@ type CTickReader struct {
 	structC  *StructDecompress
 }
 
+type CTickReaderState struct {
+	tick     uint64
+	nextTick uint64
+	br       compress.BitReaderState
+}
+
 func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BitReader, ch chan bool) (*CTickReader, error) {
 	r := &CTickReader{
 		tick:    0,
@@ -35,6 +41,20 @@ func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BitReader,
 	}
 
 	return r, nil
+}
+
+func (r *CTickReader) State() CTickReaderState {
+	return CTickReaderState{
+		tick:     r.tick,
+		nextTick: r.nextTick,
+		br:       r.br.State(),
+	}
+}
+
+func (r *CTickReader) Reset(state CTickReaderState) {
+	r.tick = state.tick
+	r.nextTick = state.nextTick
+	r.br.Reset(state.br)
 }
 
 func (r *CTickReader) Next() (uint64, TickDeltas, error) {

@@ -115,6 +115,7 @@ func (c *TickDecompress) Decompress(br *BitReader) (uint64, error) {
 		if err != nil {
 			return 0, err
 		}
+
 		if bits > (1 << (size - 1)) {
 			// or something
 			bits = bits - (1 << size)
