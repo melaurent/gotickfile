@@ -1,7 +1,6 @@
 package gotickfile
 
 import (
-	"fmt"
 	"github.com/melaurent/gotickfile/v2/compress"
 	"io"
 	"reflect"
