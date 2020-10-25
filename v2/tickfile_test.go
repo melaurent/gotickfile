@@ -136,23 +136,23 @@ func TestCreate(t *testing.T) {
 	}
 	i := 0
 
-	err = reader.Next()
+	tick, deltas, err := reader.Next()
 	for err == nil {
-		if reader.Tick != tss[i] {
-			t.Fatalf("got different tick: %d %d", reader.Tick, tss[i])
+		if tick != tss[i] {
+			t.Fatalf("got different tick: %d %d", tick, tss[i])
 		}
 
 		if i%2 == 0 {
-			if *(*Data)(reader.Val.Pointer) != data1 {
-				t.Fatalf("got different data: %v %v", *(*Data)(reader.Val.Pointer), data1)
+			if *(*Data)(deltas.Pointer) != data1 {
+				t.Fatalf("got different data: %v %v", *(*Data)(deltas.Pointer), data1)
 			}
 		} else {
-			if *(*Data)(reader.Val.Pointer) != data2 {
-				t.Fatalf("got different data: %v %v", *(*Data)(reader.Val.Pointer), data2)
+			if *(*Data)(deltas.Pointer) != data2 {
+				t.Fatalf("got different data: %v %v", *(*Data)(deltas.Pointer), data2)
 			}
 		}
 		i += 1
-		err = reader.Next()
+		tick, deltas, err = reader.Next()
 	}
 	if err != io.EOF {
 		t.Fatal(err)
@@ -197,10 +197,11 @@ func TestBasicKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := reader.Next(); err != nil {
+	tick, deltas, err := reader.Next()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if reader.Tick != 0 || *(*float64)(reader.Val.Pointer) != 0.8 {
+	if tick != 0 || *(*float64)(deltas.Pointer) != 0.8 {
 		t.Fatalf("got a different reading")
 	}
 }
@@ -219,10 +220,11 @@ func TestOpenWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := reader.Next(); err != nil {
+	tick, deltas, err := reader.Next()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if reader.Tick != 0 || *(*Data)(reader.Val.Pointer) != data1 {
+	if tick != 0 || *(*Data)(deltas.Pointer) != data1 {
 		t.Fatalf("got a different read than expected")
 	}
 }
@@ -305,36 +307,39 @@ func TestAppend(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 100; i++ {
-		if err := reader.Next(); err != nil {
+		tick, deltas, err := reader.Next()
+		if err != nil {
 			t.Fatal(err)
 		}
-		if reader.Tick != uint64(i) {
-			t.Fatalf("got different tick: %d %d", i, reader.Tick)
+		if tick != uint64(i) {
+			t.Fatalf("got different tick: %d %d", i, tick)
 		}
-		if *(*Data)(reader.Val.Pointer) != data1 {
+		if *(*Data)(deltas.Pointer) != data1 {
 			t.Fatalf("was expecting data1")
 		}
 	}
 	for i := 100; i < 200; i++ {
-		if err := reader.Next(); err != nil {
+		tick, deltas, err := reader.Next()
+		if err != nil {
 			t.Fatal(err)
 		}
-		if reader.Tick != uint64(i) {
-			t.Fatalf("got different tick: %d %d", i, reader.Tick)
+		if tick != uint64(i) {
+			t.Fatalf("got different tick: %d %d", i, tick)
 		}
-		if *(*Data)(reader.Val.Pointer) != data2 {
-			t.Fatalf("was expecting %v, got %v", data2, *(*Data)(reader.Val.Pointer))
+		if *(*Data)(deltas.Pointer) != data2 {
+			t.Fatalf("was expecting %v, got %v", data2, *(*Data)(deltas.Pointer))
 		}
 	}
 	for i := 200; i < 300; i++ {
-		if err := reader.Next(); err != nil {
+		tick, deltas, err := reader.Next()
+		if err != nil {
 			t.Fatal(err)
 		}
-		if reader.Tick != uint64(i) {
-			t.Fatalf("got different tick: %d %d", i, reader.Tick)
+		if tick != uint64(i) {
+			t.Fatalf("got different tick: %d %d", i, tick)
 		}
-		if *(*Data)(reader.Val.Pointer) != data1 {
-			t.Fatalf("was expecting %v, got %v", data2, *(*Data)(reader.Val.Pointer))
+		if *(*Data)(deltas.Pointer) != data1 {
+			t.Fatalf("was expecting %v, got %v", data2, *(*Data)(deltas.Pointer))
 		}
 	}
 }
@@ -373,13 +378,15 @@ func TestCreate2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := reader.Next(); err != nil {
+	tick, deltas, err := reader.Next()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if reader.Tick != 0 || *(*Data)(reader.Val.Pointer) != data1 {
+	if tick != 0 || *(*Data)(deltas.Pointer) != data1 {
 		t.Fatalf("different read")
 	}
-	if err := reader.Next(); err != io.EOF {
+	tick, deltas, err = reader.Next()
+	if err != io.EOF {
 		t.Fatalf("was expecting EOF")
 	}
 	err = tf.Write(1, val)
@@ -389,13 +396,15 @@ func TestCreate2(t *testing.T) {
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
 	}
-	if err := reader.Next(); err != nil {
+	tick, deltas, err = reader.Next()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if reader.Tick != 1 || *(*Data)(reader.Val.Pointer) != data1 {
+	if tick != 1 || *(*Data)(deltas.Pointer) != data1 {
 		t.Fatalf("different read")
 	}
-	if err := reader.Next(); err != io.EOF {
+	_, _, err = reader.Next()
+	if err != io.EOF {
 		t.Fatalf("was expecting EOF")
 	}
 
@@ -406,13 +415,15 @@ func TestCreate2(t *testing.T) {
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
 	}
-	if err := reader.Next(); err != nil {
+	tick, deltas, err = reader.Next()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if reader.Tick != 2 || *(*Data)(reader.Val.Pointer) != data1 {
+	if tick != 2 || *(*Data)(deltas.Pointer) != data1 {
 		t.Fatalf("different read")
 	}
-	if err := reader.Next(); err != io.EOF {
+	_, _, err = reader.Next()
+	if err != io.EOF {
 		t.Fatalf("was expecting EOF")
 	}
 
@@ -423,13 +434,15 @@ func TestCreate2(t *testing.T) {
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
 	}
-	if err := reader.Next(); err != nil {
+	tick, deltas, err = reader.Next()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if reader.Tick != 3 || *(*Data)(reader.Val.Pointer) != data1 {
+	if tick != 3 || *(*Data)(deltas.Pointer) != data1 {
 		t.Fatalf("different read")
 	}
-	if err := reader.Next(); err != io.EOF {
+	_, _, err = reader.Next()
+	if err != io.EOF {
 		t.Fatalf("was expecting EOF")
 	}
 
@@ -440,13 +453,15 @@ func TestCreate2(t *testing.T) {
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
 	}
-	if err := reader.Next(); err != nil {
+	tick, deltas, err = reader.Next()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if reader.Tick != 4 || *(*Data)(reader.Val.Pointer) != data1 {
+	if tick != 4 || *(*Data)(deltas.Pointer) != data1 {
 		t.Fatalf("different read")
 	}
-	if err := reader.Next(); err != io.EOF {
+	_, _, err = reader.Next()
+	if err != io.EOF {
 		t.Fatalf("was expecting EOF")
 	}
 
@@ -494,10 +509,11 @@ func TestRead(t *testing.T) {
 	}
 	tss := []uint64{0, 1, 2, 3, 14, 30}
 	for i := 0; i < len(tss); i++ {
-		if err := reader.Next(); err != nil {
+		tick, _, err := reader.Next()
+		if err != nil {
 			t.Fatal(err)
 		}
-		if reader.Tick != tss[i] {
+		if tick != tss[i] {
 			t.Fatalf("different tick")
 		}
 	}
@@ -548,10 +564,11 @@ func TestReadWriteMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := range goldenDeltas {
-		if err := reader.Next(); err != nil {
+		tick, deltas, err := reader.Next()
+		if err != nil {
 			t.Fatal(err)
 		}
-		if reader.Tick != uint64(i) || *(*Data)(reader.Val.Pointer) != goldenDeltas[i] {
+		if tick != uint64(i) || *(*Data)(deltas.Pointer) != goldenDeltas[i] {
 			t.Fatalf("got a different read than expected")
 		}
 	}
@@ -602,13 +619,14 @@ func TestReadSlice(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 10; i++ {
-		if err := reader.Next(); err != nil {
+		tick, deltas, err := reader.Next()
+		if err != nil {
 			t.Fatal(err)
 		}
-		if reader.Tick != uint64(i) {
-			t.Fatalf("got a different tick than expected: %d %d", reader.Tick, i)
+		if tick != uint64(i) {
+			t.Fatalf("got a different tick than expected: %d %d", tick, i)
 		}
-		ptr := uintptr(reader.Val.Pointer)
+		ptr := uintptr(deltas.Pointer)
 		for j := 0; j < 10; j++ {
 			val := *(*Data)(unsafe.Pointer(ptr))
 			if val != goldenDeltas[i*10+j] {
@@ -651,11 +669,13 @@ func TestFuzzWrite(t *testing.T) {
 			Pointer: unsafe.Pointer(&delta),
 			Len:     1,
 		}
-		if err := tf.Write(uint64(i), val); err != nil {
-			t.Fatalf("error writing: %v", err)
+		j := 15
+		for k := 0; k < j; k++ {
+			if err := tf.Write(uint64(i), val); err != nil {
+				t.Fatalf("error writing: %v", err)
+			}
 		}
 		goldenDeltas = append(goldenDeltas, delta)
-
 		// Randomly flush
 		if i%5 == rand.Intn(5) {
 			if err := tf.Flush(); err != nil {
@@ -672,10 +692,11 @@ func TestFuzzWrite(t *testing.T) {
 				t.Fatal(err)
 			}
 			for j := range goldenDeltas {
-				if err := reader.Next(); err != nil {
+				tick, deltas, err := reader.Next()
+				if err != nil {
 					t.Fatal(err)
 				}
-				if reader.Tick != uint64(j) || *(*Data)(reader.Val.Pointer) != goldenDeltas[j] {
+				if tick != uint64(j) || *(*Data)(deltas.Pointer) != goldenDeltas[j] {
 					t.Fatalf("got a different read than expected")
 				}
 			}
@@ -694,10 +715,12 @@ func TestFuzzWrite(t *testing.T) {
 				t.Fatal(err)
 			}
 			for i := range goldenDeltas {
-				if err := reader.Next(); err != nil {
+				tick, deltas, err := reader.Next()
+				if err != nil {
 					t.Fatal(err)
 				}
-				if reader.Tick != uint64(i) || *(*Data)(reader.Val.Pointer) != goldenDeltas[i] {
+				if tick != uint64(i) || *(*Data)(deltas.Pointer) != goldenDeltas[i] {
+					fmt.Println(tick, uint64(i))
 					t.Fatalf("got a different read than expected")
 				}
 			}
@@ -718,10 +741,11 @@ func TestFuzzWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := range goldenDeltas {
-		if err := reader.Next(); err != nil {
+		tick, deltas, err := reader.Next()
+		if err != nil {
 			t.Fatal(err)
 		}
-		if reader.Tick != uint64(i) || *(*Data)(reader.Val.Pointer) != goldenDeltas[i] {
+		if tick != uint64(i) || *(*Data)(deltas.Pointer) != goldenDeltas[i] {
 			t.Fatalf("got a different read than expected")
 		}
 	}
@@ -767,7 +791,7 @@ func TestConcurrent(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(4)
-
+	N := 100000
 	fn := func() {
 		defer wg.Done()
 		reader, err := tf.GetTickReader()
@@ -775,13 +799,18 @@ func TestConcurrent(t *testing.T) {
 			t.Fatal(err)
 		}
 		var expectedTick uint64 = 0
-		for expectedTick < 40 {
-			if err := reader.NextTimeout(time.Second); err != nil {
-				errChan <- fmt.Errorf("unexpected ending: %v", err)
-				return
+		for expectedTick < uint64(N) {
+			tick, _, err := reader.NextTimeout(time.Second)
+			if err != nil {
+				if err == io.EOF {
+					continue
+				} else {
+					errChan <- fmt.Errorf("unexpected ending: %v", err)
+					return
+				}
 			}
-			if reader.Tick != expectedTick {
-				errChan <- fmt.Errorf("got different tick %d %d", reader.Tick, expectedTick)
+			if tick != expectedTick {
+				errChan <- fmt.Errorf("got different tick %d %d", tick, expectedTick)
 				return
 			}
 			expectedTick += 1
@@ -793,7 +822,7 @@ func TestConcurrent(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		for i := 10; i < 40; i++ {
+		for i := 10; i < N; i++ {
 			delta := Data{
 				Time:   uint64(i),
 				Price:  uint8(rand.Int()),
@@ -811,7 +840,6 @@ func TestConcurrent(t *testing.T) {
 			if err := tf.Flush(); err != nil {
 				errChan <- err
 			}
-			time.Sleep(100 * time.Millisecond)
 		}
 	}()
 
@@ -903,11 +931,12 @@ func TestV1ToV2(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < len(goldenDeltas); i++ {
-		if err := reader.Next(); err != nil {
+		tick, deltas, err := reader.Next()
+		if err != nil {
 			t.Fatal(err)
 		}
-		if reader.Tick != uint64(i) || *(*Data)(reader.Val.Pointer) != goldenDeltas[i] {
-			fmt.Println(*(*Data)(reader.Val.Pointer), goldenDeltas[i])
+		if tick != uint64(i) || *(*Data)(deltas.Pointer) != goldenDeltas[i] {
+			fmt.Println(*(*Data)(deltas.Pointer), goldenDeltas[i])
 			t.Fatalf("got a different read than expected")
 		}
 	}
@@ -983,6 +1012,86 @@ func BenchmarkRead(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.StartTimer()
-	for ; err == nil; err = reader.Next() {
+	for ; err == nil; _, _, err = reader.Next() {
+	}
+}
+
+func BenchmarkConcurrent(b *testing.B) {
+	file, err := fs.Create("test.tick")
+	if err != nil {
+		b.Fatalf("error creating file")
+	}
+	tf, err := Create(
+		file,
+		WithDataType(reflect.TypeOf(Data{})),
+		WithContentDescription("prices of acme at NYSE"),
+		WithNameValues(map[string]interface{}{
+			"decimals": int32(2),
+			"url":      "www.acme.com",
+			"data":     []byte{0x00, 0x01},
+		}))
+	if err != nil {
+		b.Fatalf("error creating tickfile: %v", err)
+	}
+
+	errChan := make(chan error, 100)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	N := b.N
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < N; i++ {
+			delta := Data{
+				Time:   uint64(i),
+				Price:  uint8(rand.Int()),
+				Volume: uint64(rand.Int()),
+				Prob:   uint8(rand.Int()),
+				Prib:   uint64(rand.Int()),
+			}
+			val := TickDeltas{
+				Pointer: unsafe.Pointer(&delta),
+				Len:     1,
+			}
+			if err := tf.Write(uint64(i), val); err != nil {
+				errChan <- fmt.Errorf("error writing: %v", err)
+			}
+			if err := tf.Flush(); err != nil {
+				errChan <- err
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		reader, err := tf.GetTickReader()
+		if err != nil {
+			errChan <- err
+			return
+		}
+		var expectedTick uint64 = 0
+		for expectedTick < uint64(N) {
+			tick, _, err := reader.NextTimeout(time.Second)
+			if err != nil {
+				fmt.Println("UNEXPECTED ENDING", tick)
+				errChan <- fmt.Errorf("unexpected ending: %v", err)
+				return
+			}
+			if tick != expectedTick {
+				errChan <- fmt.Errorf("got different tick %d %d", tick, expectedTick)
+				return
+			}
+			expectedTick += 1
+		}
+	}()
+
+	wg.Wait()
+
+	select {
+	case err := <-errChan:
+		b.Fatal(err)
+	default:
+
 	}
 }

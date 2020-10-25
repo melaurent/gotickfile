@@ -77,7 +77,7 @@ func TestUInt64CompressFuzz(t *testing.T) {
 	var tmp uint64 = 100000
 	ts := make([]uint64, N)
 	for i := 0; i < N; i++ {
-		tmp += uint64(rand.Int31n(10))
+		tmp += uint64(rand.Int31n(10000))
 		ts[i] = tmp
 	}
 	buf := NewBBuffer(nil, 0)

@@ -180,7 +180,7 @@ func (d *StructDecompress) Decompress(br *compress.BitReader) (unsafe.Pointer, e
 	for _, r := range d.readers {
 		uptr := unsafe.Pointer(uintptr(d.uptr) + d.offset + r.offset)
 		if err := r.d.Decompress(br, (*uint64)(uptr)); err != nil {
-			return d.uptr, fmt.Errorf("error decompressing struct field: %v", err)
+			return d.uptr, err
 		}
 	}
 	d.offset += d.size

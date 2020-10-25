@@ -8,9 +8,13 @@ import (
 	"time"
 )
 
+type TickReader interface {
+	Next() (uint64, TickDeltas, error)
+	NextTimeout(time.Duration) (uint64, TickDeltas, error)
+}
+
 type CTickReader struct {
-	Tick     uint64
-	Val      TickDeltas
+	tick     uint64
 	nextTick uint64
 	ch       chan bool
 	br       *compress.BitReader
@@ -22,11 +26,7 @@ type CTickReader struct {
 
 func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BitReader, ch chan bool) (*CTickReader, error) {
 	r := &CTickReader{
-		Tick: 0,
-		Val: TickDeltas{
-			Pointer: nil,
-			Len:     1,
-		},
+		tick:    0,
 		ch:      ch,
 		br:      br,
 		info:    info,
@@ -38,54 +38,74 @@ func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BitReader,
 	return r, nil
 }
 
-func (r *CTickReader) Next() error {
-	if r.br.End() {
-		return io.EOF
+func (r *CTickReader) Next() (uint64, TickDeltas, error) {
+	delta := TickDeltas{
+		Pointer: nil,
+		Len:     0,
 	}
+	if r.br.End() {
+		return r.tick, delta, io.EOF
+	}
+	var err error
 	if r.tickC == nil {
 		// First next
-		tickC, tick, err := compress.NewTickDecompress(r.br)
+		r.tickC, r.tick, err = compress.NewTickDecompress(r.br)
 		if err != nil {
-			return fmt.Errorf("error decompressing first tick: %v", err)
+			if err == io.EOF {
+				return r.tick, delta, io.ErrUnexpectedEOF
+			} else {
+				return r.tick, delta, err
+			}
 		}
-		structC, ptr, err := NewStructDecompress(r.info, r.typ, r.br)
+		r.structC, delta.Pointer, err = NewStructDecompress(r.info, r.typ, r.br)
 		if err != nil {
-			return fmt.Errorf("error decompressing first struct: %v", err)
+			if err == io.EOF {
+				return r.tick, delta, io.ErrUnexpectedEOF
+			} else {
+				return r.tick, delta, err
+			}
 		}
 
-		r.Tick = tick
-		r.tickC = tickC
-		r.structC = structC
-
-		r.Val.Pointer = ptr
-		r.Val.Len = 1
+		delta.Len = 1
 
 		if r.br.End() {
 			r.nextTick = 0
-			return nil
+			return r.tick, delta, nil
 		}
 		// Read next tick
-		r.nextTick, err = tickC.Decompress(r.br)
+		r.nextTick, err = r.tickC.Decompress(r.br)
 		if err != nil {
-			return fmt.Errorf("error decompressing tick: %v", err)
-		}
-		for r.Tick == r.nextTick {
-			r.Val.Pointer, err = structC.Decompress(r.br)
-			if err != nil {
-				return fmt.Errorf("error decompressing struct: %v", err)
+			if err == io.EOF {
+				return r.tick, delta, io.ErrUnexpectedEOF
+			} else {
+				return r.tick, delta, err
 			}
-			r.Val.Len += 1
+		}
+		for r.tick == r.nextTick {
+			delta.Pointer, err = r.structC.Decompress(r.br)
+			if err != nil {
+				if err == io.EOF {
+					return r.tick, delta, io.ErrUnexpectedEOF
+				} else {
+					return r.tick, delta, err
+				}
+			}
+			delta.Len += 1
 			if r.br.End() {
 				r.nextTick = 0
-				return nil
+				return r.tick, delta, nil
 			}
-			r.nextTick, err = tickC.Decompress(r.br)
+			r.nextTick, err = r.tickC.Decompress(r.br)
 			if err != nil {
-				return fmt.Errorf("error decompressing tick: %v", err)
+				if err == io.EOF {
+					return r.tick, delta, io.ErrUnexpectedEOF
+				} else {
+					return r.tick, delta, err
+				}
 			}
 		}
 
-		return nil
+		return r.tick, delta, nil
 	} else {
 		// How can we know, here, if the tick was read last time ?
 		// If nextTick is zero, we failed reading nextTick last time
@@ -94,48 +114,59 @@ func (r *CTickReader) Next() error {
 			var err error
 			if r.br.End() {
 				r.nextTick = 0
-				return nil
+				return r.tick, delta, nil
 			}
 			r.nextTick, err = r.tickC.Decompress(r.br)
 			if err != nil {
-				return fmt.Errorf("error decompressing tick: %v", err)
+				if err == io.EOF {
+					return r.tick, delta, io.ErrUnexpectedEOF
+				} else {
+					return r.tick, delta, err
+				}
 			}
 		}
 		r.structC.Clear()
-		r.Val.Len = 0
-		r.Tick = r.nextTick
+		r.tick = r.nextTick
 		var err error
-		for r.Tick == r.nextTick {
-			r.Val.Pointer, err = r.structC.Decompress(r.br)
+		for r.tick == r.nextTick {
+			delta.Pointer, err = r.structC.Decompress(r.br)
 			if err != nil {
-				return fmt.Errorf("error decompressing struct: %v", err)
+				if err == io.EOF {
+					return r.tick, delta, io.ErrUnexpectedEOF
+				} else {
+					return r.tick, delta, err
+				}
 			}
-			r.Val.Len += 1
+			delta.Len += 1
 			if r.br.End() {
 				r.nextTick = 0
-				return nil
+				return r.tick, delta, nil
 			}
 			r.nextTick, err = r.tickC.Decompress(r.br)
 			if err != nil {
-				return fmt.Errorf("error decompressing tick: %v", err)
+				if err == io.EOF {
+					return r.tick, delta, io.ErrUnexpectedEOF
+				} else {
+					return r.tick, delta, err
+				}
 			}
 		}
 
-		return nil
+		return r.tick, delta, nil
 	}
 }
 
-func (r *CTickReader) NextTimeout(dur time.Duration) error {
-	err := r.Next()
+func (r *CTickReader) NextTimeout(dur time.Duration) (uint64, TickDeltas, error) {
+	tick, deltas, err := r.Next()
 	if err == io.EOF {
 		select {
 		case <-r.ch:
 			return r.Next()
 		case <-time.After(dur):
-			return ErrReadTimeout
+			return 0, TickDeltas{}, ErrReadTimeout
 		}
 	} else {
-		return err
+		return tick, deltas, err
 	}
 }
 
