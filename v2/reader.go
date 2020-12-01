@@ -66,9 +66,9 @@ func (r *CTickReader) Next() (uint64, TickDeltas, error) {
 	}
 	if r.br.End() {
 		if r.closed {
-			return r.tick, delta, io.EOF
-		} else {
 			return r.tick, delta, ErrStreamClosed
+		} else {
+			return r.tick, delta, io.EOF
 		}
 	}
 	var err error
