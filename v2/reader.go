@@ -21,6 +21,7 @@ type CTickReader struct {
 	typ      reflect.Type
 	tickC    *compress.TickDecompress
 	structC  *StructDecompress
+	closed   bool
 }
 
 type CTickReaderState struct {
@@ -38,6 +39,7 @@ func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BitReader,
 		typ:     typ,
 		tickC:   nil,
 		structC: nil,
+		closed:  false,
 	}
 
 	return r, nil
@@ -63,7 +65,11 @@ func (r *CTickReader) Next() (uint64, TickDeltas, error) {
 		Len:     0,
 	}
 	if r.br.End() {
-		return r.tick, delta, io.EOF
+		if r.closed {
+			return r.tick, delta, io.EOF
+		} else {
+			return r.tick, delta, ErrStreamClosed
+		}
 	}
 	var err error
 	if r.tickC == nil {
@@ -181,10 +187,9 @@ func (r *CTickReader) NextTimeout(dur time.Duration) (uint64, TickDeltas, error)
 		select {
 		case res := <-r.ch:
 			if res {
-				return r.Next()
-			} else {
-				return 0, TickDeltas{}, ErrStreamClosed
+				r.closed = true
 			}
+			return r.Next()
 		case <-time.After(dur):
 			return 0, TickDeltas{}, ErrReadTimeout
 		}
@@ -194,23 +199,29 @@ func (r *CTickReader) NextTimeout(dur time.Duration) (uint64, TickDeltas, error)
 }
 
 type ChunkReader struct {
-	ch    chan bool
-	r     *compress.ChunkReader
-	Chunk []byte
+	ch     chan bool
+	r      *compress.ChunkReader
+	Chunk  []byte
+	closed bool
 }
 
 func NewChunkReader(br *compress.ChunkReader, ch chan bool) *ChunkReader {
 	return &ChunkReader{
-		ch:    ch,
-		r:     br,
-		Chunk: nil,
+		ch:     ch,
+		r:      br,
+		Chunk:  nil,
+		closed: false,
 	}
 }
 
 func (r *ChunkReader) Next() error {
 	chunk := r.r.ReadChunk()
 	if chunk == nil {
-		return io.EOF
+		if r.closed {
+			return ErrStreamClosed
+		} else {
+			return io.EOF
+		}
 	}
 	r.Chunk = chunk
 	return nil
@@ -224,6 +235,7 @@ func (r *ChunkReader) NextTimeout(dur time.Duration) error {
 			if res {
 				return r.Next()
 			} else {
+				r.closed = true
 				return ErrStreamClosed
 			}
 		case <-time.After(dur):
