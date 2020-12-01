@@ -21,7 +21,6 @@ type CTickReader struct {
 	typ      reflect.Type
 	tickC    *compress.TickDecompress
 	structC  *StructDecompress
-	closed   bool
 }
 
 type CTickReaderState struct {
@@ -39,7 +38,6 @@ func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BitReader,
 		typ:     typ,
 		tickC:   nil,
 		structC: nil,
-		closed:  false,
 	}
 
 	return r, nil
@@ -65,11 +63,7 @@ func (r *CTickReader) Next() (uint64, TickDeltas, error) {
 		Len:     0,
 	}
 	if r.br.End() {
-		if r.closed {
-			return r.tick, delta, ErrStreamClosed
-		} else {
-			return r.tick, delta, io.EOF
-		}
+		return r.tick, delta, io.EOF
 	}
 	var err error
 	if r.tickC == nil {
@@ -185,10 +179,7 @@ func (r *CTickReader) NextTimeout(dur time.Duration) (uint64, TickDeltas, error)
 	tick, deltas, err := r.Next()
 	if err == io.EOF {
 		select {
-		case res := <-r.ch:
-			if res {
-				r.closed = true
-			}
+		case <-r.ch:
 			return r.Next()
 		case <-time.After(dur):
 			return 0, TickDeltas{}, ErrReadTimeout
@@ -199,29 +190,23 @@ func (r *CTickReader) NextTimeout(dur time.Duration) (uint64, TickDeltas, error)
 }
 
 type ChunkReader struct {
-	ch     chan bool
-	r      *compress.ChunkReader
-	Chunk  []byte
-	closed bool
+	ch    chan bool
+	r     *compress.ChunkReader
+	Chunk []byte
 }
 
 func NewChunkReader(br *compress.ChunkReader, ch chan bool) *ChunkReader {
 	return &ChunkReader{
-		ch:     ch,
-		r:      br,
-		Chunk:  nil,
-		closed: false,
+		ch:    ch,
+		r:     br,
+		Chunk: nil,
 	}
 }
 
 func (r *ChunkReader) Next() error {
 	chunk := r.r.ReadChunk()
 	if chunk == nil {
-		if r.closed {
-			return ErrStreamClosed
-		} else {
-			return io.EOF
-		}
+		return io.EOF
 	}
 	r.Chunk = chunk
 	return nil
@@ -231,13 +216,8 @@ func (r *ChunkReader) NextTimeout(dur time.Duration) error {
 	err := r.Next()
 	if err == io.EOF {
 		select {
-		case res := <-r.ch:
-			if res {
-				return r.Next()
-			} else {
-				r.closed = true
-				return ErrStreamClosed
-			}
+		case <-r.ch:
+			return r.Next()
 		case <-time.After(dur):
 			return ErrReadTimeout
 		}
