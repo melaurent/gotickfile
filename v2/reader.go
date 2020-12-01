@@ -179,8 +179,12 @@ func (r *CTickReader) NextTimeout(dur time.Duration) (uint64, TickDeltas, error)
 	tick, deltas, err := r.Next()
 	if err == io.EOF {
 		select {
-		case <-r.ch:
-			return r.Next()
+		case res := <-r.ch:
+			if res {
+				return r.Next()
+			} else {
+				return 0, TickDeltas{}, ErrStreamClosed
+			}
 		case <-time.After(dur):
 			return 0, TickDeltas{}, ErrReadTimeout
 		}
@@ -216,8 +220,12 @@ func (r *ChunkReader) NextTimeout(dur time.Duration) error {
 	err := r.Next()
 	if err == io.EOF {
 		select {
-		case <-r.ch:
-			return r.Next()
+		case res := <-r.ch:
+			if res {
+				return r.Next()
+			} else {
+				return ErrStreamClosed
+			}
 		case <-time.After(dur):
 			return ErrReadTimeout
 		}
