@@ -60,7 +60,6 @@ type TickFile struct {
 	nameValueSection          *NameValueSection
 	tagsSection               *TagsSection
 	contentDescriptionSection *ContentDescriptionSection
-	readerBroadcast           chan bool
 	tmpVal                    reflect.Value
 }
 
@@ -149,7 +148,6 @@ func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 		return nil, err
 	}
 	tf.offset = tf.header.ItemStart
-	tf.readerBroadcast = make(chan bool, 0)
 
 	return tf, nil
 }
@@ -315,15 +313,6 @@ func (tf *TickFile) Write(tick uint64, val TickDeltas) error {
 
 	tf.lastTick = tick
 
-ForLoop:
-	for {
-		select {
-		case tf.readerBroadcast <- true:
-		default:
-			break ForLoop
-		}
-	}
-
 	return nil
 }
 
@@ -373,7 +362,6 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	}
 
 	tf.tmpVal = reflect.New(tf.dataType)
-	tf.readerBroadcast = make(chan bool, 0)
 
 	return tf, nil
 }
@@ -396,11 +384,7 @@ func OpenHeader(file kafero.File) (*TickFile, error) {
 }
 
 func (tf *TickFile) GetTickReader() (*CTickReader, error) {
-	return NewCTickReader(tf.itemSection, tf.dataType, compress.NewBitReader(tf.block), tf.readerBroadcast)
-}
-
-func (tf *TickFile) GetChunkReader(chunkSize int) (*ChunkReader, error) {
-	return NewChunkReader(compress.NewChunkReader(tf.block, chunkSize), tf.readerBroadcast), nil
+	return NewCTickReader(tf.itemSection, tf.dataType, compress.NewBitReader(tf.block))
 }
 
 func (tf *TickFile) Flush() error {

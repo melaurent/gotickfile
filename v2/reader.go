@@ -4,13 +4,7 @@ import (
 	"github.com/melaurent/gotickfile/v2/compress"
 	"io"
 	"reflect"
-	"time"
 )
-
-type TickReader interface {
-	Next() (uint64, TickDeltas, error)
-	NextTimeout(time.Duration) (uint64, TickDeltas, error)
-}
 
 type CTickReader struct {
 	tick     uint64
@@ -29,10 +23,9 @@ type CTickReaderState struct {
 	br       compress.BitReaderState
 }
 
-func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BitReader, ch chan bool) (*CTickReader, error) {
+func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BitReader) (*CTickReader, error) {
 	r := &CTickReader{
 		tick:    0,
-		ch:      ch,
 		br:      br,
 		info:    info,
 		typ:     typ,
@@ -41,6 +34,10 @@ func NewCTickReader(info *ItemSection, typ reflect.Type, br *compress.BitReader,
 	}
 
 	return r, nil
+}
+
+func (r *CTickReader) DeltaType() reflect.Type {
+	return r.typ
 }
 
 func (r *CTickReader) State() CTickReaderState {
@@ -172,56 +169,5 @@ func (r *CTickReader) Next() (uint64, TickDeltas, error) {
 		}
 
 		return r.tick, delta, nil
-	}
-}
-
-func (r *CTickReader) NextTimeout(dur time.Duration) (uint64, TickDeltas, error) {
-	tick, deltas, err := r.Next()
-	if err == io.EOF {
-		select {
-		case <-r.ch:
-			return r.Next()
-		case <-time.After(dur):
-			return 0, TickDeltas{}, ErrReadTimeout
-		}
-	} else {
-		return tick, deltas, err
-	}
-}
-
-type ChunkReader struct {
-	ch    chan bool
-	r     *compress.ChunkReader
-	Chunk []byte
-}
-
-func NewChunkReader(br *compress.ChunkReader, ch chan bool) *ChunkReader {
-	return &ChunkReader{
-		ch:    ch,
-		r:     br,
-		Chunk: nil,
-	}
-}
-
-func (r *ChunkReader) Next() error {
-	chunk := r.r.ReadChunk()
-	if chunk == nil {
-		return io.EOF
-	}
-	r.Chunk = chunk
-	return nil
-}
-
-func (r *ChunkReader) NextTimeout(dur time.Duration) error {
-	err := r.Next()
-	if err == io.EOF {
-		select {
-		case <-r.ch:
-			return r.Next()
-		case <-time.After(dur):
-			return ErrReadTimeout
-		}
-	} else {
-		return err
 	}
 }
