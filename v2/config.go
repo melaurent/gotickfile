@@ -20,40 +20,37 @@ func TypeToItemSection(typ reflect.Type) (*ItemSection, error) {
 			itemField.Offset = uint32(dataField.Offset)
 			itemField.Index = uint32(fIdx)
 			itemField.Type = kindToFieldType[dataField.Type.Kind()]
-			itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
+			switch itemField.Type {
+			case INT32, UINT32, FLOAT32:
+				itemField.CompressionVersion = compress.UINT32_GORILLA_COMPRESS
+			case INT64, UINT64, FLOAT64:
+				itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
+			default:
+				return nil, fmt.Errorf("unsupported field type")
+			}
 			itemSection.Fields = append(itemSection.Fields, itemField)
 
 			fIdx += 1
 		}
 		itemSection.Info.FieldCount = uint32(fIdx)
 
-	case reflect.Uint64:
+	case reflect.Uint32, reflect.Int32, reflect.Float32:
 		itemSection.Info.FieldCount = 1
 		itemField := ItemSectionField{}
 		itemField.Name = typ.Name()
 		itemField.Offset = 0
 		itemField.Index = 0
-		itemField.Type = kindToFieldType[reflect.Uint64]
-		itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
+		itemField.Type = kindToFieldType[typ.Kind()]
+		itemField.CompressionVersion = compress.UINT32_GORILLA_COMPRESS
 		itemSection.Fields = append(itemSection.Fields, itemField)
 
-	case reflect.Int64:
+	case reflect.Uint64, reflect.Int64, reflect.Float64:
 		itemSection.Info.FieldCount = 1
 		itemField := ItemSectionField{}
 		itemField.Name = typ.Name()
 		itemField.Offset = 0
 		itemField.Index = 0
-		itemField.Type = kindToFieldType[reflect.Int64]
-		itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
-		itemSection.Fields = append(itemSection.Fields, itemField)
-
-	case reflect.Float64:
-		itemSection.Info.FieldCount = 1
-		itemField := ItemSectionField{}
-		itemField.Name = typ.Name()
-		itemField.Offset = 0
-		itemField.Index = 0
-		itemField.Type = kindToFieldType[reflect.Float64]
+		itemField.Type = kindToFieldType[typ.Kind()]
 		itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
 		itemSection.Fields = append(itemSection.Fields, itemField)
 

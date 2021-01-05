@@ -90,19 +90,7 @@ func NewStructCompress(info *ItemSection, ptr uintptr, bw *compress.BBuffer) *St
 		writers: nil,
 	}
 	for _, f := range info.Fields {
-		var c compress.Compress
-		switch f.Type {
-		case UINT8, INT8:
-			// TODO
-			c = compress.GetCompress(*(*uint64)(unsafe.Pointer(ptr + uintptr(f.Offset))), bw, f.CompressionVersion)
-		case INT64, UINT64, FLOAT64:
-			c = compress.GetCompress(*(*uint64)(unsafe.Pointer(ptr + uintptr(f.Offset))), bw, f.CompressionVersion)
-		default:
-			panic("compression not supported")
-		}
-		if c == nil {
-			panic("unknown compression")
-		}
+		c := compress.GetCompress(*(*uint64)(unsafe.Pointer(ptr + uintptr(f.Offset))), bw, f.CompressionVersion)
 		sc.writers = append(sc.writers, FieldWriter{
 			offset: uintptr(f.Offset),
 			c:      c,
@@ -139,25 +127,10 @@ func NewStructDecompress(info *ItemSection, typ reflect.Type, br *compress.BitRe
 
 	ptr := uintptr(uptr)
 	for _, f := range info.Fields {
-		var err error
-		var d compress.Decompress
-		switch f.Type {
-		case UINT8, INT8:
-			ptr := ptr + uintptr(f.Offset)
-			// TODO
-			d, err = compress.GetDecompress(br, (*uint64)(unsafe.Pointer(ptr)), f.CompressionVersion)
-			if err != nil {
-				return nil, nil, fmt.Errorf("error decompressing struct field: %v", err)
-			}
-		case INT64, UINT64, FLOAT64:
-			ptr := ptr + uintptr(f.Offset)
-			d, err = compress.GetDecompress(br, (*uint64)(unsafe.Pointer(ptr)), f.CompressionVersion)
-			if err != nil {
-				return nil, nil, fmt.Errorf("error decompressing struct field: %v", err)
-			}
-
-		default:
-			panic("compression not supported")
+		ptr := ptr + uintptr(f.Offset)
+		d, err := compress.GetDecompress(br, (*uint64)(unsafe.Pointer(ptr)), f.CompressionVersion)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error decompressing struct field: %v", err)
 		}
 		sd.readers = append(sd.readers, FieldReader{
 			offset: uintptr(f.Offset),

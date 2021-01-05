@@ -103,7 +103,7 @@ func TestCreate(t *testing.T) {
 	}
 	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
 	// Comparing with fixture
-	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	goldenFile, err := goldenFs.Open("./test-fixtures/test.tick")
 	if err != nil {
 		t.Fatalf("error opening file: %v", err)
 	}

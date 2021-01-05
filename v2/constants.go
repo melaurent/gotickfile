@@ -31,16 +31,16 @@ const (
 )
 
 var fieldTypeToKind = map[uint8]reflect.Kind{
-	1:  reflect.Int8,
-	2:  reflect.Int16,
-	3:  reflect.Int32,
-	4:  reflect.Int64,
-	5:  reflect.Uint8,
-	6:  reflect.Uint16,
-	7:  reflect.Uint32,
-	8:  reflect.Uint64,
-	9:  reflect.Float32,
-	10: reflect.Float64,
+	INT8:    reflect.Int8,
+	INT16:   reflect.Int16,
+	INT32:   reflect.Int32,
+	INT64:   reflect.Int64,
+	UINT8:   reflect.Uint8,
+	UINT16:  reflect.Uint16,
+	UINT32:  reflect.Uint32,
+	UINT64:  reflect.Uint64,
+	FLOAT32: reflect.Float32,
+	FLOAT64: reflect.Float64,
 }
 
 var kindToFieldType = make(map[reflect.Kind]uint8)

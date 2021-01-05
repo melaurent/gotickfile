@@ -9,15 +9,14 @@ import (
 	"reflect"
 	"sync"
 	"testing"
-	"time"
 	"unsafe"
 )
 
 type Data struct {
 	Time   uint64
-	Price  uint8
+	Price  uint32
 	Volume uint64
-	Prob   uint8
+	Prob   uint32
 	Prib   uint64
 }
 
@@ -660,9 +659,9 @@ func TestFuzzWrite(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		delta := Data{
 			Time:   uint64(i),
-			Price:  uint8(rand.Int()),
+			Price:  uint32(rand.Int()),
 			Volume: uint64(rand.Int()),
-			Prob:   uint8(rand.Int()),
+			Prob:   uint32(rand.Int()),
 			Prib:   uint64(rand.Int()),
 		}
 		val := TickDeltas{
@@ -772,9 +771,9 @@ func TestConcurrent(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		delta := Data{
 			Time:   uint64(i),
-			Price:  uint8(rand.Int()),
+			Price:  uint32(rand.Int()),
 			Volume: uint64(rand.Int()),
-			Prob:   uint8(rand.Int()),
+			Prob:   uint32(rand.Int()),
 			Prib:   uint64(rand.Int()),
 		}
 		val := TickDeltas{
@@ -800,7 +799,7 @@ func TestConcurrent(t *testing.T) {
 		}
 		var expectedTick uint64 = 0
 		for expectedTick < uint64(N) {
-			tick, _, err := reader.NextTimeout(time.Second)
+			tick, _, err := reader.Next()
 			if err != nil {
 				if err == io.EOF {
 					continue
@@ -825,9 +824,9 @@ func TestConcurrent(t *testing.T) {
 		for i := 10; i < N; i++ {
 			delta := Data{
 				Time:   uint64(i),
-				Price:  uint8(rand.Int()),
+				Price:  uint32(rand.Int()),
 				Volume: uint64(rand.Int()),
-				Prob:   uint8(rand.Int()),
+				Prob:   uint32(rand.Int()),
 				Prib:   uint64(rand.Int()),
 			}
 			val := TickDeltas{
@@ -886,9 +885,9 @@ func TestV1ToV2(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		delta := Data{
 			Time:   uint64(i),
-			Price:  uint8(rand.Int()),
+			Price:  uint32(rand.Int()),
 			Volume: uint64(rand.Int()),
-			Prob:   uint8(rand.Int()),
+			Prob:   uint32(rand.Int()),
 			Prib:   uint64(rand.Int()),
 		}
 		deltas := []Data{delta}
@@ -1045,9 +1044,9 @@ func BenchmarkConcurrent(b *testing.B) {
 		for i := 0; i < N; i++ {
 			delta := Data{
 				Time:   uint64(i),
-				Price:  uint8(rand.Int()),
+				Price:  uint32(rand.Int()),
 				Volume: uint64(rand.Int()),
-				Prob:   uint8(rand.Int()),
+				Prob:   uint32(rand.Int()),
 				Prib:   uint64(rand.Int()),
 			}
 			val := TickDeltas{
@@ -1072,7 +1071,7 @@ func BenchmarkConcurrent(b *testing.B) {
 		}
 		var expectedTick uint64 = 0
 		for expectedTick < uint64(N) {
-			tick, _, err := reader.NextTimeout(time.Second)
+			tick, _, err := reader.Next()
 			if err != nil {
 				fmt.Println("UNEXPECTED ENDING", tick)
 				errChan <- fmt.Errorf("unexpected ending: %v", err)
