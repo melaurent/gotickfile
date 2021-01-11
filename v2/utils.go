@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	gotickfilev1 "github.com/melaurent/gotickfile"
+	"github.com/melaurent/kafero"
 	"io"
-	"os"
 	"reflect"
 	"unsafe"
 )
@@ -46,7 +46,7 @@ func textSize(text string) int64 {
 	return 4 + int64(len([]byte(text)))
 }
 
-func V1ToV2(dst *os.File, src *os.File, typ reflect.Type) error {
+func V1ToV2(dst kafero.File, src kafero.File, typ reflect.Type) error {
 	tfv1, err := gotickfilev1.OpenRead(src, typ)
 	if err != nil {
 		return err

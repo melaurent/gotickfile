@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/melaurent/gotickfile/v2/compress"
+	"github.com/melaurent/kafero"
 	"io"
 	"io/ioutil"
-	"os"
 	"reflect"
 	"unsafe"
 )
@@ -47,7 +47,7 @@ type Header struct {
 }
 
 type TickFile struct {
-	file                      *os.File
+	file                      kafero.File
 	offset                    int64
 	write                     bool
 	writer                    *CTickWriter
@@ -63,7 +63,7 @@ type TickFile struct {
 	tmpVal                    reflect.Value
 }
 
-func Create(file *os.File, configs ...TickFileConfig) (*TickFile, error) {
+func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 	var tf *TickFile
 
 	if err := file.Truncate(0); err != nil {
@@ -176,11 +176,11 @@ func (tf *TickFile) GetContentDescription() *string {
 	}
 }
 
-func (tf *TickFile) GetFile() *os.File {
+func (tf *TickFile) GetFile() kafero.File {
 	return tf.file
 }
 
-func OpenWrite(file *os.File, dataType reflect.Type) (*TickFile, error) {
+func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	tf := &TickFile{
 		file:     file,
 		write:    true,
@@ -316,7 +316,7 @@ func (tf *TickFile) Write(tick uint64, val TickDeltas) error {
 	return nil
 }
 
-func OpenRead(file *os.File, dataType reflect.Type) (*TickFile, error) {
+func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	tf := &TickFile{
 		file:     file,
 		write:    false,
@@ -366,7 +366,7 @@ func OpenRead(file *os.File, dataType reflect.Type) (*TickFile, error) {
 	return tf, nil
 }
 
-func OpenHeader(file *os.File) (*TickFile, error) {
+func OpenHeader(file kafero.File) (*TickFile, error) {
 
 	tf := &TickFile{
 		file: file,
