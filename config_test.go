@@ -2,6 +2,7 @@ package gotickfile
 
 import (
 	uuid "github.com/satori/go.uuid"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -30,7 +31,7 @@ func TestWithDataType(t *testing.T) {
 			{Index: 4, Type: 8, Offset: 32, Name: "Prib"},
 		},
 	}
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -43,7 +44,7 @@ func TestWithDataType(t *testing.T) {
 	if !reflect.DeepEqual(*tf.itemSection, fixture) {
 		t.Fatalf("got different content description")
 	}
-	if err := fs.Remove("test.tick"); err != nil {
+	if err := os.Remove("tmp/test.tick"); err != nil {
 		t.Fatalf("error deleting TeaFile: %v", err)
 	}
 }
@@ -53,7 +54,7 @@ func TestWithContentDescription(t *testing.T) {
 	fixture := ContentDescriptionSection{
 		ContentDescription: "prices of acme at NYSE",
 	}
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -67,7 +68,7 @@ func TestWithContentDescription(t *testing.T) {
 	if !reflect.DeepEqual(*tf.contentDescriptionSection, fixture) {
 		t.Fatalf("got different content description")
 	}
-	if err := fs.Remove("test.tick"); err != nil {
+	if err := os.Remove("tmp/test.tick"); err != nil {
 		t.Fatalf("error deleting TeaFile: %v", err)
 	}
 }
@@ -84,7 +85,7 @@ func TestWithNameValues(t *testing.T) {
 			"e": uint64(100),
 		},
 	}
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -104,7 +105,7 @@ func TestWithNameValues(t *testing.T) {
 	if !reflect.DeepEqual(*tf.nameValueSection, fixture) {
 		t.Fatalf("got different content description")
 	}
-	err = fs.Remove("test.tick")
+	err = os.Remove("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error deleting TeaFile: %v", err)
 	}

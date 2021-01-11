@@ -3,10 +3,9 @@ package gotickfile
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/melaurent/kafero"
 	"io"
+	"os"
 	"reflect"
-	"syscall"
 	"unsafe"
 )
 
@@ -43,7 +42,7 @@ type Header struct {
 
 type TickFile struct {
 	Ticks                     []uint64
-	file                      kafero.File
+	file                      *os.File
 	write                     bool
 	mmap                      []byte
 	buffer                    []byte
@@ -58,7 +57,7 @@ type TickFile struct {
 	tmpVal                    reflect.Value
 }
 
-func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
+func Create(file *os.File, configs ...TickFileConfig) (*TickFile, error) {
 	var tf *TickFile
 
 	if err := file.Truncate(0); err != nil {
@@ -166,7 +165,7 @@ func (tf *TickFile) GetContentDescription() *string {
 	}
 }
 
-func (tf *TickFile) GetFile() kafero.File {
+func (tf *TickFile) GetFile() *os.File {
 	return tf.file
 }
 
@@ -182,7 +181,7 @@ func (tf *TickFile) ItemCount() int {
 	return tf.itemCount
 }
 
-func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
+func OpenWrite(file *os.File, dataType reflect.Type) (*TickFile, error) {
 	tf := &TickFile{
 		file:      file,
 		write:     true,
@@ -276,7 +275,7 @@ func (tf *TickFile) Write(tick uint64, val interface{}) error {
 	return nil
 }
 
-func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
+func OpenRead(file *os.File, dataType reflect.Type) (*TickFile, error) {
 	tf := &TickFile{
 		file:     file,
 		write:    false,
@@ -297,13 +296,15 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 
 	tf.itemCount = tf.computeItemCount()
 
-	if tf.file.CanMmap() && tf.ItemCount() > 0 {
-		mmap, err := tf.openReadableMapping()
-		if err != nil {
-			return nil, fmt.Errorf("error opening readable mapping: %v", err)
+	/*
+		if tf.ItemCount() > 0 {
+			mmap, err := tf.openReadableMapping()
+			if err != nil {
+				return nil, fmt.Errorf("error opening readable mapping: %v", err)
+			}
+			tf.mmap = mmap
 		}
-		tf.mmap = mmap
-	}
+	*/
 
 	if err := tf.readTicks(); err != nil {
 		return nil, fmt.Errorf("error reading ticks: %v", err)
@@ -318,7 +319,7 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	return tf, nil
 }
 
-func OpenHeader(file kafero.File) (*TickFile, error) {
+func OpenHeader(file *os.File) (*TickFile, error) {
 
 	tf := &TickFile{
 		file:      file,
@@ -338,6 +339,7 @@ func OpenHeader(file kafero.File) (*TickFile, error) {
 	return tf, nil
 }
 
+/*
 func (tf *TickFile) openReadableMapping() ([]byte, error) {
 	if tf.mmap != nil {
 		return tf.mmap, nil
@@ -379,6 +381,7 @@ func (tf *TickFile) openReadableMapping() ([]byte, error) {
 	return data, nil
 }
 
+*/
 /*
 func (tf *TickFile) Read() (interface{}, error) {
 	if tf.mode == os.O_WRONLY {
@@ -593,12 +596,14 @@ func (tf *TickFile) Close() error {
 		}
 	}
 
-	if tf.mmap != nil {
-		if err := tf.file.Munmap(); err != nil {
-			return fmt.Errorf("error munmapping: %v", err)
+	/*
+		if tf.mmap != nil {
+			if err := tf.file.Munmap(); err != nil {
+				return fmt.Errorf("error munmapping: %v", err)
+			}
+			tf.mmap = nil
 		}
-		tf.mmap = nil
-	}
+	*/
 	return nil
 }
 

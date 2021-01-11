@@ -2,7 +2,7 @@ package gotickfile
 
 import (
 	"fmt"
-	"github.com/melaurent/kafero"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -31,14 +31,10 @@ var data2 = Data{
 	Prib:   2,
 }
 
-var fs = kafero.NewMemMapFs()
-
-var goldenFs = kafero.NewOsFs()
-
 func TestCreate(t *testing.T) {
 	//handle := NewOSFileHandle("test.tick")
 	//handle := NewMemFileHandle()
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -93,7 +89,7 @@ func TestCreate(t *testing.T) {
 		t.Fatalf("error closing tickfile: %v", err)
 	}
 
-	file, err = fs.Open("test.tick")
+	file, err = os.Open("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error opening file: %v", err)
 	}
@@ -103,7 +99,7 @@ func TestCreate(t *testing.T) {
 	}
 	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
 	// Comparing with fixture
-	goldenFile, err := goldenFs.Open("./test-fixtures/test.tick")
+	goldenFile, err := os.Open("./test-fixtures/test.tick")
 	if err != nil {
 		t.Fatalf("error opening file: %v", err)
 	}
@@ -140,14 +136,14 @@ func TestCreate(t *testing.T) {
 			tf.Ticks)
 	}
 
-	if err = fs.Remove("test.tick"); err != nil {
+	if err = os.Remove("tmp/test.tick"); err != nil {
 		t.Fatalf("error deleting tickfile: %v", err)
 	}
 }
 
 func TestBasicKind(t *testing.T) {
 	var val float64 = 0.8
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -180,7 +176,7 @@ func TestBasicKind(t *testing.T) {
 }
 
 func TestOpenWrite(t *testing.T) {
-	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	goldenFile, err := os.Open("test-fixtures/test.tick")
 	if err != nil {
 		t.Fatalf("error opening file: %v", err)
 	}
@@ -200,7 +196,7 @@ func TestOpenWrite(t *testing.T) {
 }
 
 func TestAppend(t *testing.T) {
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -275,7 +271,7 @@ func TestAppend(t *testing.T) {
 
 func TestCreate2(t *testing.T) {
 	//handle := NewOSFileHandle("test.tick")
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -336,7 +332,7 @@ func TestCreate2(t *testing.T) {
 	}
 
 	// Now read
-	file, err = fs.Open("test.tick")
+	file, err = os.Open("test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -350,14 +346,14 @@ func TestCreate2(t *testing.T) {
 		t.Fatalf("got a different read than expected")
 	}
 
-	if err = fs.Remove("test.tick"); err != nil {
+	if err = os.Remove("test.tick"); err != nil {
 		t.Fatalf("error deleting tickfile: %v", err)
 	}
 }
 
 func TestRead(t *testing.T) {
 	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
-	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	goldenFile, err := os.Open("test-fixtures/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -380,7 +376,7 @@ func TestRead(t *testing.T) {
 
 func TestReadWriteMode(t *testing.T) {
 	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -433,7 +429,7 @@ func TestReadWriteMode(t *testing.T) {
 
 func TestReadArray(t *testing.T) {
 	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
-	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	goldenFile, err := os.Open("test-fixtures/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -454,13 +450,13 @@ func TestReadArray(t *testing.T) {
 
 func TestReadArrayBasic(t *testing.T) {
 	var val float64 = 0.8
-	file, err := goldenFs.Create("test-fixtures/tmp.tick")
+	file, err := os.Create("test-fixtures/tmp.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
 	defer func() {
 		_ = file.Close()
-		_ = goldenFs.Remove("test-fixtures/tmp.tick")
+		_ = os.Remove("test-fixtures/tmp.tick")
 	}()
 	tf, err := Create(
 		file,
@@ -508,7 +504,7 @@ func TestReadArrayBasic(t *testing.T) {
 
 func TestReadItem(t *testing.T) {
 	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
-	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	goldenFile, err := os.Open("test-fixtures/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
