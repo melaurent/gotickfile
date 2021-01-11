@@ -3,9 +3,9 @@ package gotickfile
 import (
 	"fmt"
 	gotickfilev1 "github.com/melaurent/gotickfile"
-	"github.com/melaurent/kafero"
 	"io"
 	"math/rand"
+	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -36,14 +36,11 @@ var data2 = Data{
 	Prib:   2,
 }
 
-var fs = kafero.NewMemMapFs()
-
-var goldenFs = kafero.NewOsFs()
-
 func TestCreate(t *testing.T) {
 	//handle := NewOSFileHandle("test.tick")
 	//handle := NewMemFileHandle()
-	file, err := fs.Create("test.tick")
+	os.Mkdir("tmp", 6644)
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -89,7 +86,7 @@ func TestCreate(t *testing.T) {
 	}
 	file.Close()
 
-	file, err = fs.Open("test.tick")
+	file, err = os.Open("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error opening file: %v", err)
 	}
@@ -99,7 +96,7 @@ func TestCreate(t *testing.T) {
 	}
 	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
 	// Comparing with fixture
-	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	goldenFile, err := os.Open("test-fixtures/test.tick")
 	if err != nil {
 		t.Fatalf("error opening file: %v", err)
 	}
@@ -157,14 +154,14 @@ func TestCreate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = fs.Remove("test.tick"); err != nil {
+	if err = os.Remove("test.tick"); err != nil {
 		t.Fatalf("error deleting tickfile: %v", err)
 	}
 }
 
 func TestBasicKind(t *testing.T) {
 	var val float64 = 0.8
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -206,7 +203,7 @@ func TestBasicKind(t *testing.T) {
 }
 
 func TestOpenWrite(t *testing.T) {
-	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	goldenFile, err := os.Open("test-fixtures/test.tick")
 	if err != nil {
 		t.Fatalf("error opening file: %v", err)
 	}
@@ -229,7 +226,7 @@ func TestOpenWrite(t *testing.T) {
 }
 
 func TestAppend(t *testing.T) {
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -345,7 +342,7 @@ func TestAppend(t *testing.T) {
 
 func TestCreate2(t *testing.T) {
 	//handle := NewOSFileHandle("test.tick")
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -470,7 +467,7 @@ func TestCreate2(t *testing.T) {
 	}
 
 	// Now read
-	file, err = fs.Open("test.tick")
+	file, err = os.Open("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -487,14 +484,14 @@ func TestCreate2(t *testing.T) {
 		}
 	*/
 
-	if err = fs.Remove("test.tick"); err != nil {
+	if err = os.Remove("tmp/test.tick"); err != nil {
 		t.Fatalf("error deleting tickfile: %v", err)
 	}
 }
 
 func TestRead(t *testing.T) {
 	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
-	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
+	goldenFile, err := os.Open("test-fixtures/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -520,7 +517,7 @@ func TestRead(t *testing.T) {
 
 func TestReadWriteMode(t *testing.T) {
 	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -575,7 +572,7 @@ func TestReadWriteMode(t *testing.T) {
 
 func TestReadSlice(t *testing.T) {
 	//fixtureHandle := NewOSFileHandle("test-fixtures/test.tick")
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -638,7 +635,7 @@ func TestReadSlice(t *testing.T) {
 }
 
 func TestFuzzWrite(t *testing.T) {
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -751,7 +748,7 @@ func TestFuzzWrite(t *testing.T) {
 }
 
 func TestConcurrent(t *testing.T) {
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -853,11 +850,11 @@ func TestConcurrent(t *testing.T) {
 }
 
 func TestV1ToV2(t *testing.T) {
-	v1, err := fs.Create("v1.tick")
+	v1, err := os.Create("tmp/v1.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
-	v2, err := fs.Create("v2.tick")
+	v2, err := os.Create("tmp/v2.tick")
 	if err != nil {
 		t.Fatalf("error creating file")
 	}
@@ -943,7 +940,7 @@ func TestV1ToV2(t *testing.T) {
 
 func BenchmarkWrite(b *testing.B) {
 	b.StopTimer()
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		b.Fatalf("error creating file")
 	}
@@ -977,7 +974,7 @@ func BenchmarkWrite(b *testing.B) {
 
 func BenchmarkRead(b *testing.B) {
 	b.StopTimer()
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		b.Fatalf("error creating file")
 	}
@@ -1016,7 +1013,7 @@ func BenchmarkRead(b *testing.B) {
 }
 
 func BenchmarkConcurrent(b *testing.B) {
-	file, err := fs.Create("test.tick")
+	file, err := os.Create("tmp/test.tick")
 	if err != nil {
 		b.Fatalf("error creating file")
 	}
