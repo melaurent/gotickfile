@@ -39,6 +39,8 @@ github.com/melaurent/gotickfile v0.0.0-20200402180903-a0861235c73f h1:fpm0A8M83V
 github.com/melaurent/gotickfile v0.0.0-20200402180903-a0861235c73f/go.mod h1:MmkPzxr7hzLo44Hz08S11PqEmffcq32p4VCVTWPE6xo=
 github.com/melaurent/gotickfile v0.0.0-20201009164801-313d6decff0e h1:owYL+UYcJCNWfprIVaZhmICtsBf4cxnn8ieVWcKOA9o=
 github.com/melaurent/gotickfile v0.0.0-20201009164801-313d6decff0e/go.mod h1:23I+lcoi42Cpnft/32Gr0mtpC9+b+NzR1pwCJwIZZ+U=
+github.com/melaurent/gotickfile v0.0.0-20210111153942-2a7b4a47af2e h1:t4CKEy9WfldTX7ao+dzczAe0O59cchXy7TcjHclHwMY=
+github.com/melaurent/gotickfile v0.0.0-20210111153942-2a7b4a47af2e/go.mod h1:23I+lcoi42Cpnft/32Gr0mtpC9+b+NzR1pwCJwIZZ+U=
 github.com/melaurent/kafero v1.2.3 h1:mfTKncc45x3Jj1GyFkECpp5a/nWAehrtMtqrA3pu4Tg=
 github.com/melaurent/kafero v1.2.3/go.mod h1:4DyG1ut8a17nLZBYe5E893lr+N2+JfpvkVn+Hyd5y5U=
 github.com/melaurent/kafero v1.2.4-0.20200218222929-17fb17df7ed1 h1:KFIdnMG/AxlAjRceAyt9If0IcZszYWfzXL305KY1bIA=

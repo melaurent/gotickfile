@@ -215,6 +215,7 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 
 	if len(block) == 0 {
 		tf.block = compress.NewBBuffer(nil, 0)
+		tf.lastTick = 0
 	} else {
 		// Create buffer from block
 		tf.block, err = blockToBuffer(block)
@@ -231,6 +232,20 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 			return nil, fmt.Errorf("error opening block for writing: %v", err)
 		}
 		tf.writer = w
+		tr, err := NewCTickReader(tf.itemSection, tf.dataType, compress.NewBitReader(tf.block))
+		if err != nil {
+			return nil, fmt.Errorf("error getting tick reader: %v", err)
+		}
+		err = nil
+		var tick uint64 = 0
+		for err == nil {
+			tick, _, err = tr.Next()
+		}
+		if err == io.EOF {
+			tf.lastTick = tick
+		} else {
+			return nil, fmt.Errorf("error reading last tick")
+		}
 	}
 
 	tf.tmpVal = reflect.New(tf.dataType)
@@ -359,6 +374,20 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		if err := tf.block.Rewind(5); err != nil {
 			return nil, err
 		}
+		tr, err := NewCTickReader(tf.itemSection, tf.dataType, compress.NewBitReader(tf.block))
+		if err != nil {
+			return nil, fmt.Errorf("error getting tick reader: %v", err)
+		}
+		err = nil
+		var tick uint64 = 0
+		for err == nil {
+			tick, _, err = tr.Next()
+		}
+		if err == io.EOF {
+			tf.lastTick = tick
+		} else {
+			return nil, fmt.Errorf("error reading last tick")
+		}
 	}
 
 	tf.tmpVal = reflect.New(tf.dataType)
@@ -381,6 +410,10 @@ func OpenHeader(file kafero.File) (*TickFile, error) {
 	}
 
 	return tf, nil
+}
+
+func (tf *TickFile) LastTick() uint64 {
+	return tf.lastTick
 }
 
 func (tf *TickFile) GetTickReader() (*CTickReader, error) {
