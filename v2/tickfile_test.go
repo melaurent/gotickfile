@@ -36,9 +36,95 @@ var data2 = Data{
 	Prib:   2,
 }
 
+type RawTradeDelta struct {
+	Part1       uint64
+	RawQuantity uint64
+	ID          uint64
+	AggregateID uint64
+}
+
 var fs = kafero.NewMemMapFs()
 
 var goldenFs = kafero.NewOsFs()
+
+func TestBug(t *testing.T) {
+	file, err := goldenFs.Open("test-fixtures/bug.tick")
+	if err != nil {
+		t.Fatalf("error opening file: %v", err)
+	}
+	tf, err := OpenRead(file, reflect.TypeOf(RawTradeDelta{}))
+	if err != nil {
+		t.Fatalf("error opening tickfile: %v", err)
+	}
+
+	reader, err := tf.GetTickReader()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tick, deltas, err := reader.Next()
+	for err == nil {
+		fmt.Println(tick, deltas)
+		tick, deltas, err = reader.Next()
+	}
+	fmt.Println(err)
+}
+
+func TestBug2(t *testing.T) {
+	file, err := fs.Create("test.tick")
+	if err != nil {
+		t.Fatalf("error creating file")
+	}
+
+	tf, err := Create(
+		file,
+		WithDataType(reflect.TypeOf(Data{})),
+		WithContentDescription("prices of acme at NYSE"),
+		WithNameValues(map[string]interface{}{
+			"decimals": int32(2),
+			"url":      "www.acme.com",
+			"data":     []byte{0x00, 0x01},
+		}))
+	if err != nil {
+		t.Fatalf("error creating tickfile: %v", err)
+	}
+
+	val1 := TickDeltas{
+		Pointer: unsafe.Pointer(&data1),
+		Len:     1,
+	}
+	val2 := TickDeltas{
+		Pointer: unsafe.Pointer(&data2),
+		Len:     1,
+	}
+
+	var ts uint64 = 10
+	for i := 0; i < 10000; i++ {
+		ts += uint64(rand.Intn(20))
+		if ts%2 == 0 {
+			err = tf.Write(ts, val1)
+			if err != nil {
+				t.Fatalf("error writing data to tickfile: %v", err)
+			}
+		} else {
+			err = tf.Write(ts, val2)
+			if err != nil {
+				t.Fatalf("error writing data to tickfile: %v", err)
+			}
+		}
+
+		if err := tf.Close(); err != nil {
+			panic(err)
+		}
+		tf, err = OpenWrite(file, reflect.TypeOf(Data{}))
+		if err != nil {
+			t.Fatalf("error opening tickfile: %v", err)
+		}
+	}
+	if err := tf.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestCreate(t *testing.T) {
 	//handle := NewOSFileHandle("test.tick")

@@ -223,7 +223,7 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 			return nil, err
 		}
 		// Read to the end
-		w, err := CTickWriterFromBlock(tf.itemSection, tf.dataType, tf.block)
+		w, lastTick, err := CTickWriterFromBlock(tf.itemSection, tf.dataType, tf.block)
 		if err != nil {
 			return nil, fmt.Errorf("error loading writer from block: %v", err)
 		}
@@ -232,20 +232,7 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 			return nil, fmt.Errorf("error opening block for writing: %v", err)
 		}
 		tf.writer = w
-		tr, err := NewCTickReader(tf.itemSection, tf.dataType, compress.NewBitReader(tf.block))
-		if err != nil {
-			return nil, fmt.Errorf("error getting tick reader: %v", err)
-		}
-		err = nil
-		var tick uint64 = 0
-		for err == nil {
-			tick, _, err = tr.Next()
-		}
-		if err == io.EOF {
-			tf.lastTick = tick
-		} else {
-			return nil, fmt.Errorf("error reading last tick")
-		}
+		tf.lastTick = lastTick
 	}
 
 	tf.tmpVal = reflect.New(tf.dataType)
@@ -263,13 +250,14 @@ func blockToBuffer(block []byte) (*compress.BBuffer, error) {
 	// XXXXXX11 11100000 -> count = 5
 	// XXXXX111 11000000 -> count = 6
 	// XXXX1111 10000000 -> count = 7
-	i := len(block) - 1
-	var v uint64
-	if i > 0 {
-		v = uint64(block[i-1])<<8 | uint64(block[i])
+	var v uint16
+	N := len(block)
+	if N > 1 {
+		v = uint16(block[N-2])<<8 | uint16(block[N-1])
 	} else {
-		v = uint64(block[i])
+		v = uint16(block[N-1])
 	}
+
 	var count uint8 = 0
 	for v != 0 && v&0x1F != 0x1F {
 		v >>= 1
@@ -278,7 +266,8 @@ func blockToBuffer(block []byte) (*compress.BBuffer, error) {
 	if v == 0 {
 		return nil, fmt.Errorf("no EOF found in block")
 	} else {
-		return compress.NewBBuffer(block, count), nil
+		buf := compress.NewBBuffer(block, count)
+		return buf, nil
 	}
 }
 
@@ -361,7 +350,6 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	}
 	tf.offset += int64(len(block))
 	tf.lastWrite = len(block)
-
 	if len(block) == 0 {
 		tf.block = compress.NewBBuffer(nil, 0)
 	} else {
@@ -380,8 +368,16 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		}
 		err = nil
 		var tick uint64 = 0
+		//var delta TickDeltas
+		type RawTradeDelta struct {
+			Part1       uint64
+			RawQuantity uint64
+			ID          uint64
+			AggregateID uint64
+		}
 		for err == nil {
 			tick, _, err = tr.Next()
+			//fmt.Println(tick, (*RawTradeDelta)(delta.Pointer))
 		}
 		if err == io.EOF {
 			tf.lastTick = tick
@@ -453,6 +449,7 @@ func (tf *TickFile) Flush() error {
 	if err := tf.writer.Open(tf.block); err != nil {
 		return err
 	}
+
 	tf.block.Unlock()
 
 	return nil

@@ -22,29 +22,30 @@ func NewCTickWriter(info *ItemSection, tick uint64, ptr uintptr, bw *compress.BB
 	return ctw
 }
 
-func CTickWriterFromBlock(info *ItemSection, typ reflect.Type, bw *compress.BBuffer) (*CTickWriter, error) {
+func CTickWriterFromBlock(info *ItemSection, typ reflect.Type, bw *compress.BBuffer) (*CTickWriter, uint64, error) {
 	br := compress.NewBitReader(bw)
 	tickDec, _, err := compress.NewTickDecompress(br)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	structDec, _, err := NewStructDecompress(info, typ, br)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
+	var tick uint64
 	for {
-		_, err = tickDec.Decompress(br)
+		tick, err = tickDec.Decompress(br)
 		if err != nil {
 			if err == io.EOF {
 				break
 			} else {
-				return nil, err
+				return nil, 0, err
 			}
 		}
 		_, err = structDec.Decompress(br)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 	// Now we have a decompressor with the correct state. We have to rewind the last bits used to indicate EOF
@@ -55,7 +56,7 @@ func CTickWriterFromBlock(info *ItemSection, typ reflect.Type, bw *compress.BBuf
 	return &CTickWriter{
 		tickC:   tickC,
 		structC: structC,
-	}, nil
+	}, tick, nil
 }
 
 func (w *CTickWriter) Write(tick uint64, ptr uintptr, bw *compress.BBuffer) {

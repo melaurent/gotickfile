@@ -29,6 +29,10 @@ func (b *BBuffer) Clone() *BBuffer {
 	return &BBuffer{b: d, count: b.count}
 }
 
+func (b *BBuffer) Count() uint8 {
+	return b.count
+}
+
 func (b *BBuffer) CloneTip(size int) *BBuffer {
 	l := len(b.b)
 	if l == 0 {
