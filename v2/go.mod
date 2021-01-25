@@ -3,8 +3,7 @@ module github.com/melaurent/gotickfile/v2
 go 1.13
 
 require (
-	github.com/dsnet/golib/memfile v0.0.0-20190531212259-571cdbcff553 // indirect
 	github.com/melaurent/gotickfile v0.0.0-20210111153942-2a7b4a47af2e
-	github.com/melaurent/kafero v1.2.4-0.20200218222929-17fb17df7ed1
+	github.com/melaurent/kafero v1.2.4-0.20210125122917-160a7190f8fd
 	github.com/satori/go.uuid v1.2.0
 )
