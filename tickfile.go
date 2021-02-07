@@ -297,6 +297,7 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 
 	tf.itemCount = tf.computeItemCount()
 
+   /*
 	if tf.file.CanMmap() && tf.ItemCount() > 0 {
 		mmap, err := tf.openReadableMapping()
 		if err != nil {
@@ -304,6 +305,7 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		}
 		tf.mmap = mmap
 	}
+   */
 
 	if err := tf.readTicks(); err != nil {
 		return nil, fmt.Errorf("error reading ticks: %v", err)
@@ -338,6 +340,7 @@ func OpenHeader(file kafero.File) (*TickFile, error) {
 	return tf, nil
 }
 
+/*
 func (tf *TickFile) openReadableMapping() ([]byte, error) {
 	if tf.mmap != nil {
 		return tf.mmap, nil
@@ -378,7 +381,7 @@ func (tf *TickFile) openReadableMapping() ([]byte, error) {
 
 	return data, nil
 }
-
+*/
 /*
 func (tf *TickFile) Read() (interface{}, error) {
 	if tf.mode == os.O_WRONLY {
