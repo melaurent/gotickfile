@@ -6,7 +6,6 @@ import (
 	"github.com/melaurent/kafero"
 	"io"
 	"reflect"
-	"syscall"
 	"unsafe"
 )
 
