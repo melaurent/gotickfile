@@ -416,6 +416,10 @@ func (tf *TickFile) GetTickReader() (*CTickReader, error) {
 	return NewCTickReader(tf.itemSection, tf.dataType, compress.NewBitReader(tf.block))
 }
 
+func (tf *TickFile) GetChunkReader(chunkSize int) (*compress.ChunkReader, error) {
+	return compress.NewChunkReader(tf.block, chunkSize), nil
+}
+
 func (tf *TickFile) Flush() error {
 	if tf.writer == nil {
 		return nil
