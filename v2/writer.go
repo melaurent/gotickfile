@@ -23,8 +23,9 @@ func NewCTickWriter(info *ItemSection, tick uint64, ptr uintptr, bw *compress.BB
 }
 
 func CTickWriterFromBlock(info *ItemSection, typ reflect.Type, bw *compress.BBuffer) (*CTickWriter, uint64, error) {
+	var lastTick uint64
 	br := compress.NewBitReader(bw)
-	tickDec, _, err := compress.NewTickDecompress(br)
+	tickDec, tick, err := compress.NewTickDecompress(br)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -32,8 +33,7 @@ func CTickWriterFromBlock(info *ItemSection, typ reflect.Type, bw *compress.BBuf
 	if err != nil {
 		return nil, 0, err
 	}
-
-	var lastTick uint64
+	lastTick = tick
 	for {
 		tick, err := tickDec.Decompress(br)
 		if err != nil {

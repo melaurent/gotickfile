@@ -100,8 +100,9 @@ func TestBug2(t *testing.T) {
 
 	var ts uint64 = 10
 	for i := 0; i < 10000; i++ {
-		ts += uint64(rand.Intn(20))
+		ts += uint64(rand.Intn(51000))
 		if ts%2 == 0 {
+			data1.Prib = uint64(rand.Intn(12919))
 			err = tf.Write(ts, val1)
 			if err != nil {
 				t.Fatalf("error writing data to tickfile: %v", err)
@@ -119,6 +120,9 @@ func TestBug2(t *testing.T) {
 		tf, err = OpenWrite(file, reflect.TypeOf(Data{}))
 		if err != nil {
 			t.Fatalf("error opening tickfile: %v", err)
+		}
+		if tf.LastTick() != ts {
+			t.Fatalf("different last tick: %d %d", tf.LastTick(), ts)
 		}
 	}
 	if err := tf.Close(); err != nil {
