@@ -100,8 +100,11 @@ func TestBug2(t *testing.T) {
 
 	var ts uint64 = 10
 	for i := 0; i < 10000; i++ {
-		ts += uint64(rand.Intn(51000))
-		if ts%2 == 0 {
+		if err := tf.Flush(); err != nil {
+			panic(err)
+		}
+		if i%20 == 0 {
+			ts += uint64(rand.Intn(51000))
 			data1.Prib = uint64(rand.Intn(12919))
 			err = tf.Write(ts, val1)
 			if err != nil {
@@ -112,6 +115,15 @@ func TestBug2(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error writing data to tickfile: %v", err)
 			}
+		}
+		if err := tf.Flush(); err != nil {
+			panic(err)
+		}
+		if err := tf.Flush(); err != nil {
+			panic(err)
+		}
+		if err := tf.Flush(); err != nil {
+			panic(err)
 		}
 
 		if err := tf.Close(); err != nil {

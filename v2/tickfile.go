@@ -188,7 +188,7 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		dataType: dataType,
 	}
 
-	if _, err := tf.file.Seek(0, 0); err != nil {
+	if _, err := tf.file.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("error seeking to beginning of file: %v", err)
 	}
 
@@ -200,16 +200,16 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		return nil, err
 	}
 
-	if _, err := tf.file.Seek(tf.header.ItemStart, 0); err != nil {
+	if _, err := tf.file.Seek(tf.header.ItemStart, io.SeekStart); err != nil {
 		return nil, err
 	}
 	tf.offset = tf.header.ItemStart
 
-	// Read file to block
 	block, err := ioutil.ReadAll(tf.file)
 	if err != nil {
 		return nil, err
 	}
+
 	tf.offset += int64(len(block))
 	tf.lastWrite = len(block)
 

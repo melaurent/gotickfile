@@ -1,11 +1,13 @@
 package compress
 
+import "unsafe"
+
 type Compress interface {
 	Compress(uint64, *BBuffer)
 }
 
 type Decompress interface {
-	Decompress(*BitReader, *uint64) error
+	Decompress(*BitReader, unsafe.Pointer) error
 	ToCompress() Compress
 }
 
@@ -25,7 +27,7 @@ func GetCompress(val uint64, bw *BBuffer, version uint8) Compress {
 	}
 }
 
-func GetDecompress(br *BitReader, ptr *uint64, version uint8) (Decompress, error) {
+func GetDecompress(br *BitReader, ptr unsafe.Pointer, version uint8) (Decompress, error) {
 	switch version {
 	case UINT32_GORILLA_COMPRESS:
 		return NewUInt32GorillaDecompress(br, ptr)

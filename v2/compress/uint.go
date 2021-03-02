@@ -2,6 +2,7 @@ package compress
 
 import (
 	"math/bits"
+	"unsafe"
 )
 
 type UInt64GorillaCompress struct {
@@ -65,12 +66,12 @@ type UInt64GorillaDecompress struct {
 	trailing uint8
 }
 
-func NewUInt64GorillaDecompress(br *BitReader, ptr *uint64) (*UInt64GorillaDecompress, error) {
+func NewUInt64GorillaDecompress(br *BitReader, ptr unsafe.Pointer) (*UInt64GorillaDecompress, error) {
 	val, err := br.ReadBits(64)
 	if err != nil {
 		return nil, err
 	}
-	*ptr = val
+	*(*uint64)(ptr) = val
 	return &UInt64GorillaDecompress{
 		lastVal:  val,
 		leading:  0,
@@ -78,13 +79,14 @@ func NewUInt64GorillaDecompress(br *BitReader, ptr *uint64) (*UInt64GorillaDecom
 	}, nil
 }
 
-func (d *UInt64GorillaDecompress) Decompress(br *BitReader, val *uint64) error {
+func (d *UInt64GorillaDecompress) Decompress(br *BitReader, ptr unsafe.Pointer) error {
 	// read compressed value
 	bit, err := br.ReadBit()
 	if err != nil {
 		return err
 	}
 
+	val := (*uint64)(ptr)
 	if bit == Zero {
 		*val = d.lastVal
 	} else {
@@ -196,12 +198,12 @@ type UInt32GorillaDecompress struct {
 	trailing uint8
 }
 
-func NewUInt32GorillaDecompress(br *BitReader, ptr *uint64) (*UInt32GorillaDecompress, error) {
+func NewUInt32GorillaDecompress(br *BitReader, ptr unsafe.Pointer) (*UInt32GorillaDecompress, error) {
 	val, err := br.ReadBits(32)
 	if err != nil {
 		return nil, err
 	}
-	*ptr = val
+	*(*uint32)(ptr) = uint32(val)
 	return &UInt32GorillaDecompress{
 		lastVal:  uint32(val),
 		leading:  0,
@@ -209,15 +211,16 @@ func NewUInt32GorillaDecompress(br *BitReader, ptr *uint64) (*UInt32GorillaDecom
 	}, nil
 }
 
-func (d *UInt32GorillaDecompress) Decompress(br *BitReader, val *uint64) error {
+func (d *UInt32GorillaDecompress) Decompress(br *BitReader, ptr unsafe.Pointer) error {
 	// read compressed value
 	bit, err := br.ReadBit()
 	if err != nil {
 		return err
 	}
 
+	val := (*uint32)(ptr)
 	if bit == Zero {
-		*val = uint64(d.lastVal)
+		*val = d.lastVal
 	} else {
 		bit, err := br.ReadBit()
 		if err != nil {
@@ -250,8 +253,8 @@ func (d *UInt32GorillaDecompress) Decompress(br *BitReader, val *uint64) error {
 		if err != nil {
 			return err
 		}
-		*val = uint64(d.lastVal ^ (uint32(bits) << d.trailing))
-		d.lastVal = uint32(*val)
+		*val = d.lastVal ^ (uint32(bits) << d.trailing)
+		d.lastVal = *val
 	}
 
 	return nil
