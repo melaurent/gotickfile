@@ -290,6 +290,7 @@ func (tf *TickFile) Write(tick uint64, val TickDeltas) error {
 	*/
 
 	if tick < tf.lastTick {
+		fmt.Println("TF OUT OF ORDER", tick, tf.lastTick)
 		return ErrTickOutOfOrder
 	}
 	count := val.Len
