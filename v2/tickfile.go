@@ -457,6 +457,10 @@ func (tf *TickFile) Flush() error {
 
 	tf.block.Unlock()
 
+	if err := tf.file.Sync(); err != nil {
+		return fmt.Errorf("error syncing file")
+	}
+
 	return nil
 }
 
