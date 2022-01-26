@@ -15,22 +15,46 @@ func TypeToItemSection(typ reflect.Type) (*ItemSection, error) {
 		fIdx := 0
 		for i := 0; i < typ.NumField(); i++ {
 			dataField := typ.Field(i)
-			itemField := ItemSectionField{}
-			itemField.Name = dataField.Name
-			itemField.Offset = uint32(dataField.Offset)
-			itemField.Index = uint32(fIdx)
-			itemField.Type = kindToFieldType[dataField.Type.Kind()]
-			switch itemField.Type {
-			case INT32, UINT32, FLOAT32:
-				itemField.CompressionVersion = compress.UINT32_GORILLA_COMPRESS
-			case INT64, UINT64, FLOAT64:
-				itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
-			default:
-				return nil, fmt.Errorf("unsupported field type")
+			if dataField.Type.Kind() == reflect.Array {
+				elem := dataField.Type.Elem()
+				for f := 0; f < dataField.Type.Len(); f++ {
+					itemField := ItemSectionField{}
+					itemField.Name = dataField.Name + fmt.Sprintf(".%d", f)
+					itemField.Offset = uint32(dataField.Offset + elem.Size()*uintptr(f))
+					itemField.Index = uint32(fIdx)
+					itemField.Type = kindToFieldType[elem.Kind()]
+					switch itemField.Type {
+					case INT8, UINT8:
+						itemField.CompressionVersion = compress.UINT8_GORILLA_COMPRESS
+					case INT32, UINT32, FLOAT32:
+						itemField.CompressionVersion = compress.UINT32_GORILLA_COMPRESS
+					case INT64, UINT64, FLOAT64:
+						itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
+					default:
+						return nil, fmt.Errorf("unsupported field type: %s", elem.Kind().String())
+					}
+					itemSection.Fields = append(itemSection.Fields, itemField)
+					fIdx += 1
+				}
+			} else {
+				itemField := ItemSectionField{}
+				itemField.Name = dataField.Name
+				itemField.Offset = uint32(dataField.Offset)
+				itemField.Index = uint32(fIdx)
+				itemField.Type = kindToFieldType[dataField.Type.Kind()]
+				switch itemField.Type {
+				case INT8, UINT8:
+					itemField.CompressionVersion = compress.UINT8_GORILLA_COMPRESS
+				case INT32, UINT32, FLOAT32:
+					itemField.CompressionVersion = compress.UINT32_GORILLA_COMPRESS
+				case INT64, UINT64, FLOAT64:
+					itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
+				default:
+					return nil, fmt.Errorf("unsupported field type: %s", dataField.Type.Kind().String())
+				}
+				itemSection.Fields = append(itemSection.Fields, itemField)
+				fIdx += 1
 			}
-			itemSection.Fields = append(itemSection.Fields, itemField)
-
-			fIdx += 1
 		}
 		itemSection.Info.FieldCount = uint32(fIdx)
 

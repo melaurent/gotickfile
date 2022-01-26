@@ -28,6 +28,7 @@ const (
 	UINT64  uint8 = 8
 	FLOAT32 uint8 = 9
 	FLOAT64 uint8 = 10
+	ARRAY   uint8 = 11
 )
 
 var fieldTypeToKind = map[uint8]reflect.Kind{
@@ -41,6 +42,7 @@ var fieldTypeToKind = map[uint8]reflect.Kind{
 	UINT64:  reflect.Uint64,
 	FLOAT32: reflect.Float32,
 	FLOAT64: reflect.Float64,
+	ARRAY:   reflect.Array,
 }
 
 var kindToFieldType = make(map[reflect.Kind]uint8)

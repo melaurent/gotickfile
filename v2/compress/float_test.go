@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"testing"
+	"unsafe"
 )
 
 type OBDelta struct {
@@ -23,7 +24,7 @@ func TestFloat64Compress(t *testing.T) {
 	reader := NewBitReader(buf)
 
 	var val uint64
-	dc, err := NewUInt64GorillaDecompress(reader, &val)
+	dc, err := NewUInt64GorillaDecompress(reader, unsafe.Pointer(&val))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +32,7 @@ func TestFloat64Compress(t *testing.T) {
 		t.Fatalf("different val")
 	}
 	for i := 1; i < len(ts1); i++ {
-		err = dc.Decompress(reader, &val)
+		err = dc.Decompress(reader, unsafe.Pointer(&val))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -50,7 +51,7 @@ func TestFloat64Compress(t *testing.T) {
 	}
 
 	reader = NewBitReader(buf)
-	dc, err = NewUInt64GorillaDecompress(reader, &val)
+	dc, err = NewUInt64GorillaDecompress(reader, unsafe.Pointer(&val))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +59,7 @@ func TestFloat64Compress(t *testing.T) {
 		t.Fatalf("different tick")
 	}
 	for i := 1; i < len(ts1); i++ {
-		err = dc.Decompress(reader, &val)
+		err = dc.Decompress(reader, unsafe.Pointer(&val))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -67,7 +68,7 @@ func TestFloat64Compress(t *testing.T) {
 		}
 	}
 	for i := 0; i < len(ts2); i++ {
-		err = dc.Decompress(reader, &val)
+		err = dc.Decompress(reader, unsafe.Pointer(&val))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -95,7 +96,7 @@ func TestFloat64CompressFuzz(t *testing.T) {
 	reader := NewBitReader(buf)
 
 	var val uint64
-	dc, err := NewUInt64GorillaDecompress(reader, &val)
+	dc, err := NewUInt64GorillaDecompress(reader, unsafe.Pointer(&val))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +104,7 @@ func TestFloat64CompressFuzz(t *testing.T) {
 		t.Fatalf("different first tick")
 	}
 	for i := 1; i < len(ts); i++ {
-		err = dc.Decompress(reader, &val)
+		err = dc.Decompress(reader, unsafe.Pointer(&val))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -124,7 +125,7 @@ func TestFloat32Compress(t *testing.T) {
 	reader := NewBitReader(buf)
 
 	var val uint64
-	dc, err := NewUInt32GorillaDecompress(reader, &val)
+	dc, err := NewUInt32GorillaDecompress(reader, unsafe.Pointer(&val))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +133,7 @@ func TestFloat32Compress(t *testing.T) {
 		t.Fatalf("different val")
 	}
 	for i := 1; i < len(ts1); i++ {
-		err = dc.Decompress(reader, &val)
+		err = dc.Decompress(reader, unsafe.Pointer(&val))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -151,7 +152,7 @@ func TestFloat32Compress(t *testing.T) {
 	}
 
 	reader = NewBitReader(buf)
-	dc, err = NewUInt32GorillaDecompress(reader, &val)
+	dc, err = NewUInt32GorillaDecompress(reader, unsafe.Pointer(&val))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +160,7 @@ func TestFloat32Compress(t *testing.T) {
 		t.Fatalf("different tick")
 	}
 	for i := 1; i < len(ts1); i++ {
-		err = dc.Decompress(reader, &val)
+		err = dc.Decompress(reader, unsafe.Pointer(&val))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -168,7 +169,7 @@ func TestFloat32Compress(t *testing.T) {
 		}
 	}
 	for i := 0; i < len(ts2); i++ {
-		err = dc.Decompress(reader, &val)
+		err = dc.Decompress(reader, unsafe.Pointer(&val))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -196,7 +197,7 @@ func TestFloat32CompressFuzz(t *testing.T) {
 	reader := NewBitReader(buf)
 
 	var val uint64
-	dc, err := NewUInt32GorillaDecompress(reader, &val)
+	dc, err := NewUInt32GorillaDecompress(reader, unsafe.Pointer(&val))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +205,7 @@ func TestFloat32CompressFuzz(t *testing.T) {
 		t.Fatalf("different first tick")
 	}
 	for i := 1; i < len(ts); i++ {
-		err = dc.Decompress(reader, &val)
+		err = dc.Decompress(reader, unsafe.Pointer(&val))
 		if err != nil {
 			t.Fatal(err)
 		}
