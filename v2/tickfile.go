@@ -650,23 +650,20 @@ func (tf *TickFile) writeHeader() error {
 // Check if the data type corresponds to the file description
 func (tf *TickFile) checkDataType() error {
 	if tf.dataType.Kind() == reflect.Struct {
-		n := tf.dataType.NumField()
-		var fields []reflect.StructField
-		for i := 0; i < n; i++ {
-			if tf.dataType.Field(i).Name != "_" {
-				fields = append(fields, tf.dataType.Field(i))
-			}
+		section, err := TypeToItemSection(tf.dataType)
+		if err != nil {
+			return fmt.Errorf("error converting type to item section: %v", err)
 		}
-		if len(fields) != len(tf.itemSection.Fields) {
-			return fmt.Errorf("given type has %d fields, was expecting %d", len(fields), len(tf.itemSection.Fields))
+		if len(section.Fields) != len(tf.itemSection.Fields) {
+			return fmt.Errorf("given type has %d fields, was expecting %d", len(section.Fields), len(tf.itemSection.Fields))
 		}
-		for i := 0; i < len(fields); i++ {
-			dataField := fields[i]
+		for i := range section.Fields {
+			dataField := section.Fields[i]
 			fileField := tf.itemSection.Fields[i]
-			if dataField.Type.Kind() != fieldTypeToKind[fileField.Type] {
+			if dataField.Type != fileField.Type {
 				return fmt.Errorf("was not expecting %v", dataField.Type)
 			}
-			if dataField.Offset != uintptr(fileField.Offset) {
+			if dataField.Offset != fileField.Offset {
 				return fmt.Errorf(
 					"got different offsets for field %d: %d %d",
 					i,
