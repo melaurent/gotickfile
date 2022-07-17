@@ -129,8 +129,8 @@ func NewStructDecompress(info *ItemSection, typ reflect.Type, br *compress.BitRe
 
 	ptr := uintptr(uptr)
 	for _, f := range info.Fields {
-		ptr := ptr + uintptr(f.Offset)
-		d, err := compress.GetDecompress(br, unsafe.Pointer(ptr), f.CompressionVersion)
+		fptr := ptr + uintptr(f.Offset)
+		d, err := compress.GetDecompress(br, unsafe.Pointer(fptr), f.CompressionVersion)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error decompressing struct field: %v", err)
 		}

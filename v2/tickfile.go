@@ -383,7 +383,7 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		if err == io.EOF {
 			tf.lastTick = tick
 		} else {
-			return nil, fmt.Errorf("error reading last tick")
+			return nil, err
 		}
 	}
 
