@@ -333,7 +333,7 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	}
 
 	if err := tf.readHeader(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading header: %w", err)
 	}
 
 	if err := tf.checkDataType(); err != nil {
@@ -347,7 +347,7 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	// Read file to block
 	block, err := ioutil.ReadAll(tf.file)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading file to block: %w", err)
 	}
 	tf.offset += int64(len(block))
 	tf.lastWrite = len(block)
