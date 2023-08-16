@@ -47,7 +47,7 @@ type Header struct {
 }
 
 type TickFile struct {
-	file                      io.ReadWriter
+	file                      kafero.File
 	offset                    int64
 	write                     bool
 	writer                    *CTickWriter
@@ -144,9 +144,7 @@ func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 	tf.lastTick = 0
 	tf.block = compress.NewBBuffer(nil, 0)
 	tf.lastWrite = 0
-
-	// Write padding bytes
-	if _, err := tf.file.Write(make([]byte, paddingBytes)); err != nil {
+	if _, err := tf.file.Seek(tf.header.ItemStart, io.SeekStart); err != nil {
 		return nil, err
 	}
 	tf.offset = tf.header.ItemStart
@@ -178,16 +176,20 @@ func (tf *TickFile) GetContentDescription() *string {
 	}
 }
 
-func (tf *TickFile) GetFile() io.ReadWriter {
+func (tf *TickFile) GetFile() kafero.File {
 	return tf.file
 }
 
-func OpenWrite(file io.ReadWriter, dataType reflect.Type) (*TickFile, error) {
+func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	tf := &TickFile{
 		file:     file,
 		write:    true,
 		writer:   nil,
 		dataType: dataType,
+	}
+
+	if _, err := tf.file.Seek(0, io.SeekStart); err != nil {
+		return nil, fmt.Errorf("error seeking to beginning of file: %w", err)
 	}
 
 	if err := tf.readHeader(); err != nil {
@@ -198,14 +200,10 @@ func OpenWrite(file io.ReadWriter, dataType reflect.Type) (*TickFile, error) {
 		return nil, err
 	}
 
-	// read padding bytes
-	paddingBytes := tf.header.ItemStart - tf.offset
-	if paddingBytes > 0 {
-		if _, err := tf.file.Read(make([]byte, paddingBytes)); err != nil {
-			return nil, err
-		}
-		tf.offset += paddingBytes
+	if _, err := tf.file.Seek(tf.header.ItemStart, io.SeekStart); err != nil {
+		return nil, err
 	}
+	tf.offset = tf.header.ItemStart
 
 	block, err := ioutil.ReadAll(tf.file)
 	if err != nil {
@@ -323,30 +321,28 @@ func (tf *TickFile) Write(tick uint64, val TickDeltas) error {
 	return nil
 }
 
-func OpenRead(file io.ReadWriter, dataType reflect.Type) (*TickFile, error) {
+func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	tf := &TickFile{
 		file:     file,
 		write:    false,
 		dataType: dataType,
 	}
 
+	if _, err := tf.file.Seek(0, 0); err != nil {
+		return nil, fmt.Errorf("error seeking to beginning of file: %w", err)
+	}
+
 	if err := tf.readHeader(); err != nil {
-		return nil, fmt.Errorf("error reading header: %w", err)
+		return nil, err
 	}
 
 	if err := tf.checkDataType(); err != nil {
 		return nil, fmt.Errorf("error checking data type: %w", err)
 	}
 
-	// read padding bytes
-	paddingBytes := tf.header.ItemStart - tf.offset
-	if paddingBytes > 0 {
-		if _, err := tf.file.Read(make([]byte, paddingBytes)); err != nil {
-			return nil, err
-		}
-		tf.offset += paddingBytes
+	if _, err := tf.file.Seek(tf.header.ItemStart, 0); err != nil {
+		return nil, fmt.Errorf("error seeking to first item: %w", err)
 	}
-
 	tf.offset = tf.header.ItemStart
 	// Read file to block
 	block, err := ioutil.ReadAll(tf.file)
@@ -402,6 +398,10 @@ func OpenHeader(file kafero.File) (*TickFile, error) {
 		file: file,
 	}
 
+	if _, err := tf.file.Seek(0, 0); err != nil {
+		return nil, fmt.Errorf("error seeking to beginning of file: %w", err)
+	}
+
 	if err := tf.readHeader(); err != nil {
 		return nil, err
 	}
@@ -427,7 +427,6 @@ func (tf *TickFile) Flush() error {
 	}
 
 	// Flush to disk
-	// W
 	if tf.offset-tf.header.ItemStart > 2 {
 		if _, err := tf.file.Seek(-2, io.SeekCurrent); err != nil {
 			return err
@@ -497,7 +496,6 @@ func (tf *TickFile) readHeader() error {
 			return err
 		}
 
-		// This is done to get offset
 		beforeSection, err := tf.file.Seek(0, 1)
 		if err != nil {
 			return err
@@ -663,7 +661,7 @@ func (tf *TickFile) checkDataType() error {
 			dataField := section.Fields[i]
 			fileField := tf.itemSection.Fields[i]
 			if dataField.Type != fileField.Type {
-				return fmt.Errorf("was not expecting %w", dataField.Type)
+				return fmt.Errorf("was not expecting %v", dataField.Type)
 			}
 			if dataField.Offset != fileField.Offset {
 				return fmt.Errorf(
