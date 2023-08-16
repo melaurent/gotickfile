@@ -47,7 +47,7 @@ type Header struct {
 }
 
 type TickFile struct {
-	file                      kafero.File
+	file                      io.ReadWriter
 	offset                    int64
 	write                     bool
 	writer                    *CTickWriter
@@ -67,7 +67,7 @@ func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 	var tf *TickFile
 
 	if err := file.Truncate(0); err != nil {
-		return nil, fmt.Errorf("error truncating file: %v", err)
+		return nil, fmt.Errorf("error truncating file: %w", err)
 	}
 
 	tf = &TickFile{
@@ -144,7 +144,9 @@ func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 	tf.lastTick = 0
 	tf.block = compress.NewBBuffer(nil, 0)
 	tf.lastWrite = 0
-	if _, err := tf.file.Seek(tf.header.ItemStart, io.SeekStart); err != nil {
+
+	// Write padding bytes
+	if _, err := tf.file.Write(make([]byte, paddingBytes)); err != nil {
 		return nil, err
 	}
 	tf.offset = tf.header.ItemStart
@@ -176,20 +178,16 @@ func (tf *TickFile) GetContentDescription() *string {
 	}
 }
 
-func (tf *TickFile) GetFile() kafero.File {
+func (tf *TickFile) GetFile() io.ReadWriter {
 	return tf.file
 }
 
-func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
+func OpenWrite(file io.ReadWriter, dataType reflect.Type) (*TickFile, error) {
 	tf := &TickFile{
 		file:     file,
 		write:    true,
 		writer:   nil,
 		dataType: dataType,
-	}
-
-	if _, err := tf.file.Seek(0, io.SeekStart); err != nil {
-		return nil, fmt.Errorf("error seeking to beginning of file: %v", err)
 	}
 
 	if err := tf.readHeader(); err != nil {
@@ -200,10 +198,14 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		return nil, err
 	}
 
-	if _, err := tf.file.Seek(tf.header.ItemStart, io.SeekStart); err != nil {
-		return nil, err
+	// read padding bytes
+	paddingBytes := tf.header.ItemStart - tf.offset
+	if paddingBytes > 0 {
+		if _, err := tf.file.Read(make([]byte, paddingBytes)); err != nil {
+			return nil, err
+		}
+		tf.offset += paddingBytes
 	}
-	tf.offset = tf.header.ItemStart
 
 	block, err := ioutil.ReadAll(tf.file)
 	if err != nil {
@@ -225,11 +227,11 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		// Read to the end
 		w, lastTick, err := CTickWriterFromBlock(tf.itemSection, tf.dataType, tf.block)
 		if err != nil {
-			return nil, fmt.Errorf("error loading writer from block: %v", err)
+			return nil, fmt.Errorf("error loading writer from block: %w", err)
 		}
 		// Open block
 		if err := w.Open(tf.block); err != nil {
-			return nil, fmt.Errorf("error opening block for writing: %v", err)
+			return nil, fmt.Errorf("error opening block for writing: %w", err)
 		}
 		tf.writer = w
 		tf.lastTick = lastTick
@@ -321,28 +323,30 @@ func (tf *TickFile) Write(tick uint64, val TickDeltas) error {
 	return nil
 }
 
-func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
+func OpenRead(file io.ReadWriter, dataType reflect.Type) (*TickFile, error) {
 	tf := &TickFile{
 		file:     file,
 		write:    false,
 		dataType: dataType,
 	}
 
-	if _, err := tf.file.Seek(0, 0); err != nil {
-		return nil, fmt.Errorf("error seeking to beginning of file: %v", err)
-	}
-
 	if err := tf.readHeader(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading header: %w", err)
 	}
 
 	if err := tf.checkDataType(); err != nil {
-		return nil, fmt.Errorf("error checking data type: %v", err)
+		return nil, fmt.Errorf("error checking data type: %w", err)
 	}
 
-	if _, err := tf.file.Seek(tf.header.ItemStart, 0); err != nil {
-		return nil, fmt.Errorf("error seeking to first item: %v", err)
+	// read padding bytes
+	paddingBytes := tf.header.ItemStart - tf.offset
+	if paddingBytes > 0 {
+		if _, err := tf.file.Read(make([]byte, paddingBytes)); err != nil {
+			return nil, err
+		}
+		tf.offset += paddingBytes
 	}
+
 	tf.offset = tf.header.ItemStart
 	// Read file to block
 	block, err := ioutil.ReadAll(tf.file)
@@ -365,7 +369,7 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 		}
 		tr, err := NewCTickReader(tf.itemSection, tf.dataType, compress.NewBitReader(tf.block))
 		if err != nil {
-			return nil, fmt.Errorf("error getting tick reader: %v", err)
+			return nil, fmt.Errorf("error getting tick reader: %w", err)
 		}
 		err = nil
 		var tick uint64 = 0
@@ -398,10 +402,6 @@ func OpenHeader(file kafero.File) (*TickFile, error) {
 		file: file,
 	}
 
-	if _, err := tf.file.Seek(0, 0); err != nil {
-		return nil, fmt.Errorf("error seeking to beginning of file: %v", err)
-	}
-
 	if err := tf.readHeader(); err != nil {
 		return nil, err
 	}
@@ -427,6 +427,7 @@ func (tf *TickFile) Flush() error {
 	}
 
 	// Flush to disk
+	// W
 	if tf.offset-tf.header.ItemStart > 2 {
 		if _, err := tf.file.Seek(-2, io.SeekCurrent); err != nil {
 			return err
@@ -445,7 +446,7 @@ func (tf *TickFile) Flush() error {
 	tf.writer.Close(tf.block)
 	n, err := tf.file.Write(tf.block.Bytes()[tf.lastWrite:])
 	if err != nil {
-		return fmt.Errorf("error writing data block to file: %v", err)
+		return fmt.Errorf("error writing data block to file: %w", err)
 	}
 	tf.offset += int64(n)
 	tf.lastWrite += n
@@ -496,6 +497,7 @@ func (tf *TickFile) readHeader() error {
 			return err
 		}
 
+		// This is done to get offset
 		beforeSection, err := tf.file.Seek(0, 1)
 		if err != nil {
 			return err
@@ -652,7 +654,7 @@ func (tf *TickFile) checkDataType() error {
 	if tf.dataType.Kind() == reflect.Struct {
 		section, err := TypeToItemSection(tf.dataType)
 		if err != nil {
-			return fmt.Errorf("error converting type to item section: %v", err)
+			return fmt.Errorf("error converting type to item section: %w", err)
 		}
 		if len(section.Fields) != len(tf.itemSection.Fields) {
 			return fmt.Errorf("given type has %d fields, was expecting %d", len(section.Fields), len(tf.itemSection.Fields))
@@ -661,7 +663,7 @@ func (tf *TickFile) checkDataType() error {
 			dataField := section.Fields[i]
 			fileField := tf.itemSection.Fields[i]
 			if dataField.Type != fileField.Type {
-				return fmt.Errorf("was not expecting %v", dataField.Type)
+				return fmt.Errorf("was not expecting %w", dataField.Type)
 			}
 			if dataField.Offset != fileField.Offset {
 				return fmt.Errorf(

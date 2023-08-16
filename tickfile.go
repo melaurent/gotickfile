@@ -61,7 +61,7 @@ func Create(file kafero.File, configs ...TickFileConfig) (*TickFile, error) {
 	var tf *TickFile
 
 	if err := file.Truncate(0); err != nil {
-		return nil, fmt.Errorf("error truncating file: %v", err)
+		return nil, fmt.Errorf("error truncating file: %w", err)
 	}
 
 	tf = &TickFile{
@@ -191,7 +191,7 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	}
 
 	if _, err := tf.file.Seek(0, 0); err != nil {
-		return nil, fmt.Errorf("error seeking to beginning of file: %v", err)
+		return nil, fmt.Errorf("error seeking to beginning of file: %w", err)
 	}
 
 	if err := tf.readHeader(); err != nil {
@@ -283,36 +283,35 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	}
 
 	if _, err := tf.file.Seek(0, 0); err != nil {
-		return nil, fmt.Errorf("error seeking to beginning of file: %v", err)
+		return nil, fmt.Errorf("error seeking to beginning of file: %w", err)
 	}
 
 	if err := tf.readHeader(); err != nil {
-		return nil, fmt.Errorf("error reading file header: %v", err)
+		return nil, fmt.Errorf("error reading file header: %w", err)
 	}
 
 	if err := tf.checkDataType(); err != nil {
-		return nil, fmt.Errorf("error checking data type: %v", err)
+		return nil, fmt.Errorf("error checking data type: %w", err)
 	}
 
 	tf.itemCount = tf.computeItemCount()
 
-   /*
-	if tf.file.CanMmap() && tf.ItemCount() > 0 {
-		mmap, err := tf.openReadableMapping()
-		if err != nil {
-			return nil, fmt.Errorf("error opening readable mapping: %v", err)
+	/*
+		if tf.file.CanMmap() && tf.ItemCount() > 0 {
+			mmap, err := tf.openReadableMapping()
+			if err != nil {
+				return nil, fmt.Errorf("error opening readable mapping: %w", err)
+			}
+			tf.mmap = mmap
 		}
-		tf.mmap = mmap
-	}
-   */
+	*/
 
 	if err := tf.readTicks(); err != nil {
-		return nil, fmt.Errorf("error reading ticks: %v", err)
+		return nil, fmt.Errorf("error reading ticks: %w", err)
 	}
 
 	if _, err := tf.file.Seek(tf.header.ItemStart, 0); err != nil {
-		return nil, fmt.Errorf("error seeking to first item: %v", err)
-
+		return nil, fmt.Errorf("error seeking to first item: %w", err)
 	}
 
 	tf.tmpVal = reflect.New(tf.dataType)
@@ -327,7 +326,7 @@ func OpenHeader(file kafero.File) (*TickFile, error) {
 	}
 
 	if _, err := tf.file.Seek(0, 0); err != nil {
-		return nil, fmt.Errorf("error seeking to beginning of file: %v", err)
+		return nil, fmt.Errorf("error seeking to beginning of file: %w", err)
 	}
 
 	if err := tf.readHeader(); err != nil {
@@ -375,7 +374,7 @@ func (tf *TickFile) openReadableMapping() ([]byte, error) {
 		syscall.PROT_READ,
 		syscall.MAP_SHARED)
 	if err != nil {
-		return nil, fmt.Errorf("error opening mmap: %v", err)
+		return nil, fmt.Errorf("error opening mmap: %w", err)
 	}
 
 	return data, nil
@@ -597,7 +596,7 @@ func (tf *TickFile) Close() error {
 
 	if tf.mmap != nil {
 		if err := tf.file.Munmap(); err != nil {
-			return fmt.Errorf("error munmapping: %v", err)
+			return fmt.Errorf("error munmapping: %w", err)
 		}
 		tf.mmap = nil
 	}
@@ -785,7 +784,7 @@ func (tf *TickFile) readTicks() error {
 		}
 		fstat, err := tf.file.Stat()
 		if err != nil {
-			return fmt.Errorf("error getting file info: %v", err)
+			return fmt.Errorf("error getting file info: %w", err)
 		}
 
 		size := fstat.Size()
@@ -843,7 +842,7 @@ func (tf *TickFile) checkDataType() error {
 			dataField := fields[i]
 			fileField := tf.itemSection.Fields[i]
 			if dataField.Type.Kind() != fieldTypeToKind[fileField.Type] {
-				return fmt.Errorf("was not expecting %v", dataField.Type)
+				return fmt.Errorf("was not expecting %w", dataField.Type)
 			}
 			if dataField.Offset != uintptr(fileField.Offset) {
 				return fmt.Errorf(

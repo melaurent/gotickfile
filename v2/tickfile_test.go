@@ -249,7 +249,7 @@ func TestCreate(t *testing.T) {
 			}
 		} else {
 			if *(*Data)(deltas.Pointer) != data2 {
-				t.Fatalf("got different data: %v %v", *(*Data)(deltas.Pointer), data2)
+				t.Fatalf("got different data: %v %w", *(*Data)(deltas.Pointer), data2)
 			}
 		}
 		i += 1
@@ -260,7 +260,7 @@ func TestCreate(t *testing.T) {
 	}
 
 	if err = fs.Remove("test.tick"); err != nil {
-		t.Fatalf("error deleting tickfile: %v", err)
+		t.Fatalf("error deleting tickfile: %w", err)
 	}
 }
 
@@ -280,7 +280,7 @@ func TestBasicKind(t *testing.T) {
 			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
-		t.Fatalf("error creating tickfile: %v", err)
+		t.Fatalf("error creating tickfile: %w", err)
 	}
 
 	delta := TickDeltas{
@@ -289,7 +289,7 @@ func TestBasicKind(t *testing.T) {
 	}
 	err = tf.Write(0, delta)
 	if err != nil {
-		t.Fatalf("error writing data to tickfile: %v", err)
+		t.Fatalf("error writing data to tickfile: %w", err)
 	}
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
@@ -310,11 +310,11 @@ func TestBasicKind(t *testing.T) {
 func TestOpenWrite(t *testing.T) {
 	goldenFile, err := goldenFs.Open("test-fixtures/test.tick")
 	if err != nil {
-		t.Fatalf("error opening file: %v", err)
+		t.Fatalf("error opening file: %w", err)
 	}
 	tf, err := OpenWrite(goldenFile, reflect.TypeOf(Data{}))
 	if err != nil {
-		t.Fatalf("error opening tickfile: %v", err)
+		t.Fatalf("error opening tickfile: %w", err)
 	}
 
 	reader, err := tf.GetTickReader()
@@ -346,7 +346,7 @@ func TestAppend(t *testing.T) {
 			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
-		t.Fatalf("error creating tickfile: %v", err)
+		t.Fatalf("error creating tickfile: %w", err)
 	}
 
 	delta1 := TickDeltas{
@@ -356,16 +356,16 @@ func TestAppend(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		err = tf.Write(uint64(i), delta1)
 		if err != nil {
-			t.Fatalf("error writing data to tickfile: %v", err)
+			t.Fatalf("error writing data to tickfile: %w", err)
 		}
 	}
 	if err := tf.Close(); err != nil {
-		t.Fatalf("error closing tickfile: %v", err)
+		t.Fatalf("error closing tickfile: %w", err)
 	}
 
 	tf, err = OpenWrite(file, reflect.TypeOf(Data{}))
 	if err != nil {
-		t.Fatalf("error opening tickfile in write mode: %v", err)
+		t.Fatalf("error opening tickfile in write mode: %w", err)
 	}
 
 	delta2 := TickDeltas{
@@ -375,32 +375,32 @@ func TestAppend(t *testing.T) {
 	for i := 100; i < 200; i++ {
 		err = tf.Write(uint64(i), delta2)
 		if err != nil {
-			t.Fatalf("error writing data to tickfile: %v", err)
+			t.Fatalf("error writing data to tickfile: %w", err)
 		}
 	}
 	err = tf.Close()
 	if err != nil {
-		t.Fatalf("error closing tickfile: %v", err)
+		t.Fatalf("error closing tickfile: %w", err)
 	}
 	tf, err = OpenWrite(file, reflect.TypeOf(Data{}))
 	if err != nil {
-		t.Fatalf("error opening tickfile in write mode: %v", err)
+		t.Fatalf("error opening tickfile in write mode: %w", err)
 	}
 
 	for i := 200; i < 300; i++ {
 		err = tf.Write(uint64(i), delta1)
 		if err != nil {
-			t.Fatalf("error writing data to tickfile: %v", err)
+			t.Fatalf("error writing data to tickfile: %w", err)
 		}
 	}
 	err = tf.Close()
 	if err != nil {
-		t.Fatalf("error closing tickfile: %v", err)
+		t.Fatalf("error closing tickfile: %w", err)
 	}
 
 	tf, err = OpenRead(file, reflect.TypeOf(Data{}))
 	if err != nil {
-		t.Fatalf("error opening tickfile for reading: %v", err)
+		t.Fatalf("error opening tickfile for reading: %w", err)
 	}
 
 	reader, err := tf.GetTickReader()
@@ -428,7 +428,7 @@ func TestAppend(t *testing.T) {
 			t.Fatalf("got different tick: %d %d", i, tick)
 		}
 		if *(*Data)(deltas.Pointer) != data2 {
-			t.Fatalf("was expecting %v, got %v", data2, *(*Data)(deltas.Pointer))
+			t.Fatalf("was expecting %w, got %w", data2, *(*Data)(deltas.Pointer))
 		}
 	}
 	for i := 200; i < 300; i++ {
@@ -440,7 +440,7 @@ func TestAppend(t *testing.T) {
 			t.Fatalf("got different tick: %d %d", i, tick)
 		}
 		if *(*Data)(deltas.Pointer) != data1 {
-			t.Fatalf("was expecting %v, got %v", data2, *(*Data)(deltas.Pointer))
+			t.Fatalf("was expecting %w, got %w", data2, *(*Data)(deltas.Pointer))
 		}
 	}
 }
@@ -461,7 +461,7 @@ func TestCreate2(t *testing.T) {
 			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
-		t.Fatalf("error creating tickfile: %v", err)
+		t.Fatalf("error creating tickfile: %w", err)
 	}
 
 	val := TickDeltas{
@@ -470,7 +470,7 @@ func TestCreate2(t *testing.T) {
 	}
 	err = tf.Write(0, val)
 	if err != nil {
-		t.Fatalf("error writing data to tickfile: %v", err)
+		t.Fatalf("error writing data to tickfile: %w", err)
 	}
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
@@ -492,7 +492,7 @@ func TestCreate2(t *testing.T) {
 	}
 	err = tf.Write(1, val)
 	if err != nil {
-		t.Fatalf("error writing data to tickfile: %v", err)
+		t.Fatalf("error writing data to tickfile: %w", err)
 	}
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
@@ -511,7 +511,7 @@ func TestCreate2(t *testing.T) {
 
 	err = tf.Write(2, val)
 	if err != nil {
-		t.Fatalf("error writing data to tickfile: %v", err)
+		t.Fatalf("error writing data to tickfile: %w", err)
 	}
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
@@ -530,7 +530,7 @@ func TestCreate2(t *testing.T) {
 
 	err = tf.Write(3, val)
 	if err != nil {
-		t.Fatalf("error writing data to tickfile: %v", err)
+		t.Fatalf("error writing data to tickfile: %w", err)
 	}
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
@@ -549,7 +549,7 @@ func TestCreate2(t *testing.T) {
 
 	err = tf.Write(4, val)
 	if err != nil {
-		t.Fatalf("error writing data to tickfile: %v", err)
+		t.Fatalf("error writing data to tickfile: %w", err)
 	}
 	if err := tf.Flush(); err != nil {
 		t.Fatal(err)
@@ -568,7 +568,7 @@ func TestCreate2(t *testing.T) {
 
 	err = tf.Close()
 	if err != nil {
-		t.Fatalf("error closing file: %v", err)
+		t.Fatalf("error closing file: %w", err)
 	}
 
 	// Now read
@@ -578,7 +578,7 @@ func TestCreate2(t *testing.T) {
 	}
 	tf, err = OpenRead(file, reflect.TypeOf(Data{}))
 	if err != nil {
-		t.Fatalf("error opening tickfile: %v", err)
+		t.Fatalf("error opening tickfile: %w", err)
 	}
 	// TODO ?
 	/*
@@ -590,7 +590,7 @@ func TestCreate2(t *testing.T) {
 	*/
 
 	if err = fs.Remove("test.tick"); err != nil {
-		t.Fatalf("error deleting tickfile: %v", err)
+		t.Fatalf("error deleting tickfile: %w", err)
 	}
 }
 
@@ -602,7 +602,7 @@ func TestRead(t *testing.T) {
 	}
 	tf, err := OpenRead(goldenFile, reflect.TypeOf(Data{}))
 	if err != nil {
-		t.Fatalf("error opening tickfile: %v", err)
+		t.Fatalf("error opening tickfile: %w", err)
 	}
 	reader, err := tf.GetTickReader()
 	if err != nil {
@@ -636,7 +636,7 @@ func TestReadWriteMode(t *testing.T) {
 			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
-		t.Fatalf("error creating tickfile: %v", err)
+		t.Fatalf("error creating tickfile: %w", err)
 	}
 
 	var goldenDeltas []Data
@@ -653,7 +653,7 @@ func TestReadWriteMode(t *testing.T) {
 			Len:     1,
 		}
 		if err := tf.Write(uint64(i), val); err != nil {
-			t.Fatalf("error writing: %v", err)
+			t.Fatalf("error writing: %w", err)
 		}
 		goldenDeltas = append(goldenDeltas, delta)
 	}
@@ -691,7 +691,7 @@ func TestReadSlice(t *testing.T) {
 			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
-		t.Fatalf("error creating tickfile: %v", err)
+		t.Fatalf("error creating tickfile: %w", err)
 	}
 
 	var goldenDeltas []Data
@@ -708,7 +708,7 @@ func TestReadSlice(t *testing.T) {
 			Len:     1,
 		}
 		if err := tf.Write(uint64(i/10), val); err != nil {
-			t.Fatalf("error writing: %v", err)
+			t.Fatalf("error writing: %w", err)
 		}
 		goldenDeltas = append(goldenDeltas, delta)
 	}
@@ -731,7 +731,7 @@ func TestReadSlice(t *testing.T) {
 		for j := 0; j < 10; j++ {
 			val := *(*Data)(unsafe.Pointer(ptr))
 			if val != goldenDeltas[i*10+j] {
-				t.Fatalf("got different delta %v %v", val, goldenDeltas[i*10+j])
+				t.Fatalf("got different delta %w %w", val, goldenDeltas[i*10+j])
 			}
 			ptr += reflect.TypeOf(Data{}).Size()
 		}
@@ -754,7 +754,7 @@ func TestFuzzWrite(t *testing.T) {
 			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
-		t.Fatalf("error creating tickfile: %v", err)
+		t.Fatalf("error creating tickfile: %w", err)
 	}
 
 	var goldenDeltas []Data
@@ -773,7 +773,7 @@ func TestFuzzWrite(t *testing.T) {
 		j := 15
 		for k := 0; k < j; k++ {
 			if err := tf.Write(uint64(i), val); err != nil {
-				t.Fatalf("error writing: %v", err)
+				t.Fatalf("error writing: %w", err)
 			}
 		}
 		goldenDeltas = append(goldenDeltas, delta)
@@ -830,7 +830,7 @@ func TestFuzzWrite(t *testing.T) {
 			}
 			tf, err = OpenWrite(file, reflect.TypeOf(Data{}))
 			if err != nil {
-				t.Fatalf("error opening tickfile in write mode: %v", err)
+				t.Fatalf("error opening tickfile in write mode: %w", err)
 			}
 		}
 	}
@@ -867,7 +867,7 @@ func TestConcurrent(t *testing.T) {
 			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
-		t.Fatalf("error creating tickfile: %v", err)
+		t.Fatalf("error creating tickfile: %w", err)
 	}
 
 	for i := 0; i < 10; i++ {
@@ -883,7 +883,7 @@ func TestConcurrent(t *testing.T) {
 			Len:     1,
 		}
 		if err := tf.Write(uint64(i), val); err != nil {
-			t.Fatalf("error writing: %v", err)
+			t.Fatalf("error writing: %w", err)
 		}
 	}
 	tf.Flush()
@@ -906,7 +906,7 @@ func TestConcurrent(t *testing.T) {
 				if err == io.EOF {
 					continue
 				} else {
-					errChan <- fmt.Errorf("unexpected ending: %v", err)
+					errChan <- fmt.Errorf("unexpected ending: %w", err)
 					return
 				}
 			}
@@ -936,7 +936,7 @@ func TestConcurrent(t *testing.T) {
 				Len:     1,
 			}
 			if err := tf.Write(uint64(i), val); err != nil {
-				errChan <- fmt.Errorf("error writing: %v", err)
+				errChan <- fmt.Errorf("error writing: %w", err)
 			}
 			if err := tf.Flush(); err != nil {
 				errChan <- err
@@ -980,7 +980,7 @@ func TestV1ToV2(t *testing.T) {
 		gotickfilev1.WithTags(tags1),
 		gotickfilev1.WithNameValues(nv1))
 	if err != nil {
-		t.Fatalf("error creating tickfile: %v", err)
+		t.Fatalf("error creating tickfile: %w", err)
 	}
 
 	var goldenDeltas []Data
@@ -994,7 +994,7 @@ func TestV1ToV2(t *testing.T) {
 		}
 		deltas := []Data{delta}
 		if err := tfv1.Write(uint64(i), &deltas); err != nil {
-			t.Fatalf("error writing: %v", err)
+			t.Fatalf("error writing: %w", err)
 		}
 		goldenDeltas = append(goldenDeltas, delta)
 	}
@@ -1059,7 +1059,7 @@ func BenchmarkWrite(b *testing.B) {
 			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
-		b.Fatalf("error creating tickfile: %v", err)
+		b.Fatalf("error creating tickfile: %w", err)
 	}
 
 	val := TickDeltas{
@@ -1093,7 +1093,7 @@ func BenchmarkRead(b *testing.B) {
 			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
-		b.Fatalf("error creating tickfile: %v", err)
+		b.Fatalf("error creating tickfile: %w", err)
 	}
 
 	val := TickDeltas{
@@ -1132,7 +1132,7 @@ func BenchmarkConcurrent(b *testing.B) {
 			"data":     []byte{0x00, 0x01},
 		}))
 	if err != nil {
-		b.Fatalf("error creating tickfile: %v", err)
+		b.Fatalf("error creating tickfile: %w", err)
 	}
 
 	errChan := make(chan error, 100)
@@ -1156,7 +1156,7 @@ func BenchmarkConcurrent(b *testing.B) {
 				Len:     1,
 			}
 			if err := tf.Write(uint64(i), val); err != nil {
-				errChan <- fmt.Errorf("error writing: %v", err)
+				errChan <- fmt.Errorf("error writing: %w", err)
 			}
 			if err := tf.Flush(); err != nil {
 				errChan <- err
@@ -1176,7 +1176,7 @@ func BenchmarkConcurrent(b *testing.B) {
 			tick, _, err := reader.Next()
 			if err != nil {
 				fmt.Println("UNEXPECTED ENDING", tick)
-				errChan <- fmt.Errorf("unexpected ending: %v", err)
+				errChan <- fmt.Errorf("unexpected ending: %w", err)
 				return
 			}
 			if tick != expectedTick {

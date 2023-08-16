@@ -132,7 +132,7 @@ func NewStructDecompress(info *ItemSection, typ reflect.Type, br *compress.BitRe
 		fptr := ptr + uintptr(f.Offset)
 		d, err := compress.GetDecompress(br, unsafe.Pointer(fptr), f.CompressionVersion)
 		if err != nil {
-			return nil, nil, fmt.Errorf("error decompressing struct field: %v", err)
+			return nil, nil, fmt.Errorf("error decompressing struct field: %w", err)
 		}
 		sd.readers = append(sd.readers, FieldReader{
 			offset: uintptr(f.Offset),

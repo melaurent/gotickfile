@@ -68,7 +68,7 @@ func V1ToV2(dst kafero.File, src kafero.File, typ reflect.Type) error {
 	tfv2, err := Create(dst, configs...)
 	if err != nil {
 		_ = tfv1.Close()
-		return fmt.Errorf("error creating tickfile v2: %v", err)
+		return fmt.Errorf("error creating tickfile v2: %w", err)
 	}
 	N := tfv1.ItemCount()
 	for i := 0; i < N; i++ {
@@ -76,7 +76,7 @@ func V1ToV2(dst kafero.File, src kafero.File, typ reflect.Type) error {
 		if err != nil {
 			_ = tfv1.Close()
 			_ = tfv2.Close()
-			return fmt.Errorf("error reading tickfile v1: %v", err)
+			return fmt.Errorf("error reading tickfile v1: %w", err)
 		}
 
 		ptr := reflect.ValueOf(delta).Pointer()
@@ -86,16 +86,16 @@ func V1ToV2(dst kafero.File, src kafero.File, typ reflect.Type) error {
 		}); err != nil {
 			_ = tfv1.Close()
 			_ = tfv2.Close()
-			return fmt.Errorf("error copying to tickfile v2: %v", err)
+			return fmt.Errorf("error copying to tickfile v2: %w", err)
 		}
 	}
 
 	if err := tfv2.Close(); err != nil {
 		_ = tfv1.Close()
-		return fmt.Errorf("error closing tickfile v2: %v", err)
+		return fmt.Errorf("error closing tickfile v2: %w", err)
 	}
 	if err := tfv1.Close(); err != nil {
-		return fmt.Errorf("error closing tickfile v1: %v", err)
+		return fmt.Errorf("error closing tickfile v1: %w", err)
 	}
 
 	return nil
