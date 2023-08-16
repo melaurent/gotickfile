@@ -727,13 +727,13 @@ func TestReadSlice(t *testing.T) {
 		if tick != uint64(i) {
 			t.Fatalf("got a different tick than expected: %d %d", tick, i)
 		}
-		ptr := uintptr(deltas.Pointer)
+		ptr := deltas.Pointer
 		for j := 0; j < 10; j++ {
-			val := *(*Data)(unsafe.Pointer(ptr))
+			val := *(*Data)(ptr)
 			if val != goldenDeltas[i*10+j] {
 				t.Fatalf("got different delta %v %v", val, goldenDeltas[i*10+j])
 			}
-			ptr += reflect.TypeOf(Data{}).Size()
+			ptr = unsafe.Pointer(uintptr(ptr) + reflect.TypeOf(Data{}).Size())
 		}
 
 	}
