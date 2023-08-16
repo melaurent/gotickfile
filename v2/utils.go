@@ -79,9 +79,9 @@ func V1ToV2(dst kafero.File, src kafero.File, typ reflect.Type) error {
 			return fmt.Errorf("error reading tickfile v1: %w", err)
 		}
 
-		ptr := reflect.ValueOf(delta).Pointer()
+		ptr := unsafe.Pointer(reflect.ValueOf(delta).Pointer())
 		if err := tfv2.Write(tick, TickDeltas{
-			Pointer: unsafe.Pointer(ptr),
+			Pointer: ptr,
 			Len:     1,
 		}); err != nil {
 			_ = tfv1.Close()
