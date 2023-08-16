@@ -13,7 +13,7 @@ type CTickWriter struct {
 	structC *StructCompress
 }
 
-func NewCTickWriter(info *ItemSection, tick uint64, ptr uintptr, bw *compress.BBuffer) *CTickWriter {
+func NewCTickWriter(info *ItemSection, tick uint64, ptr unsafe.Pointer, bw *compress.BBuffer) *CTickWriter {
 	ctw := &CTickWriter{
 		tickC:   compress.NewTickCompress(tick, bw),
 		structC: NewStructCompress(info, ptr, bw),
@@ -60,7 +60,7 @@ func CTickWriterFromBlock(info *ItemSection, typ reflect.Type, bw *compress.BBuf
 	}, lastTick, nil
 }
 
-func (w *CTickWriter) Write(tick uint64, ptr uintptr, bw *compress.BBuffer) {
+func (w *CTickWriter) Write(tick uint64, ptr unsafe.Pointer, bw *compress.BBuffer) {
 	w.tickC.Compress(tick, bw)
 	w.structC.Compress(ptr, bw)
 }
@@ -87,24 +87,24 @@ type StructCompress struct {
 	writers []FieldWriter
 }
 
-func NewStructCompress(info *ItemSection, ptr uintptr, bw *compress.BBuffer) *StructCompress {
+func NewStructCompress(info *ItemSection, ptr unsafe.Pointer, bw *compress.BBuffer) *StructCompress {
 	sc := &StructCompress{
 		writers: nil,
 	}
 	for _, f := range info.Fields {
-		c := compress.GetCompress(*(*uint64)(unsafe.Pointer(ptr + uintptr(f.Offset))), bw, f.CompressionVersion)
+		fieldPtr := unsafe.Pointer(uintptr(ptr) + uintptr(f.Offset))
+		c := compress.GetCompress(*(*uint64)(fieldPtr), bw, f.CompressionVersion)
 		sc.writers = append(sc.writers, FieldWriter{
 			offset: uintptr(f.Offset),
 			c:      c,
 		})
 	}
-
 	return sc
 }
 
-func (c *StructCompress) Compress(ptr uintptr, bw *compress.BBuffer) {
+func (c *StructCompress) Compress(ptr unsafe.Pointer, bw *compress.BBuffer) {
 	for _, w := range c.writers {
-		w.c.Compress(*(*uint64)(unsafe.Pointer(ptr + w.offset)), bw)
+		w.c.Compress(*(*uint64)(unsafe.Pointer(uintptr(ptr) + w.offset)), bw)
 	}
 }
 

@@ -300,19 +300,23 @@ func (tf *TickFile) Write(tick uint64, val TickDeltas) error {
 	}
 
 	size := tf.dataType.Size()
-	ptr := uintptr(val.Pointer)
+	ptr := val.Pointer
 	if tf.writer == nil {
 		tf.block.Lock()
 		tf.writer = NewCTickWriter(tf.itemSection, tick, ptr, tf.block)
 		tf.block.Unlock()
-		ptr += size
 		count -= 1
+		if count > 0 {
+			ptr = unsafe.Pointer(uintptr(ptr) + size)
+		}
 	}
 
 	tf.block.Lock()
 	for i := 0; i < count; i++ {
 		tf.writer.Write(tick, ptr, tf.block)
-		ptr += size
+		if i < count-1 {
+			ptr = unsafe.Pointer(uintptr(ptr) + size)
+		}
 	}
 	tf.block.Unlock()
 
