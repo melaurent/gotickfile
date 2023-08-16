@@ -24,9 +24,9 @@ func TestWithDataType(t *testing.T) {
 		},
 		Fields: []ItemSectionField{
 			{Index: 0, Type: 8, CompressionVersion: 1, Offset: 0, Name: "Time"},
-			{Index: 1, Type: 5, CompressionVersion: 1, Offset: 8, Name: "Price"},
+			{Index: 1, Type: 5, CompressionVersion: 2, Offset: 8, Name: "Price"},
 			{Index: 2, Type: 8, CompressionVersion: 1, Offset: 16, Name: "Volume"},
-			{Index: 3, Type: 5, CompressionVersion: 1, Offset: 24, Name: "Prob"},
+			{Index: 3, Type: 5, CompressionVersion: 2, Offset: 24, Name: "Prob"},
 			{Index: 4, Type: 8, CompressionVersion: 1, Offset: 32, Name: "Prib"},
 		},
 	}
@@ -41,7 +41,7 @@ func TestWithDataType(t *testing.T) {
 		t.Fatalf("error creating TeaFile: %v", err)
 	}
 	if !reflect.DeepEqual(*tf.itemSection, fixture) {
-		t.Fatalf("got different content description")
+		t.Fatalf("got different content description: \n %+v \n %+v", *tf.itemSection, fixture)
 	}
 	if err := fs.Remove("test.tick"); err != nil {
 		t.Fatalf("error deleting TeaFile: %v", err)
