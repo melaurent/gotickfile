@@ -146,7 +146,7 @@ func NewStructDecompress(br *compress.BitReader, info *ItemSection, typ reflect.
 		}
 		size -= uintptr(fieldSize)
 	}
-	sd.offset += size
+	sd.offset += typ.Size()
 
 	return sd, uptr, nil
 }
