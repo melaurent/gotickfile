@@ -93,17 +93,22 @@ func NewStructCompress(bw *compress.BBuffer, info *ItemSection, ptr unsafe.Point
 	}
 	size := info.Info.ItemSize
 
-	for i := len(info.Fields) - 1; i >= 0; i-- {
+	for i := 0; i < len(info.Fields); i++ {
 		f := info.Fields[i]
 		fieldPtr := unsafe.Pointer(uintptr(ptr) + uintptr(f.Offset))
-		fieldSize := size - f.Offset
+		var fieldSize uint32
+		if i == len(info.Fields)-1 {
+			fieldSize = size - f.Offset
+		} else {
+			fieldSize = info.Fields[i+1].Offset - f.Offset
+		}
 		c := compress.GetCompress(bw, fieldPtr, fieldSize, f.CompressionVersion)
 		sc.writers[i] = FieldWriter{
 			offset: uintptr(f.Offset),
 			c:      c,
 		}
-		size -= fieldSize
 	}
+
 	return sc
 }
 
@@ -132,10 +137,15 @@ func NewStructDecompress(br *compress.BitReader, info *ItemSection, typ reflect.
 	uptr := unsafe.Pointer(&sd.val[0])
 	sd.uptr = uptr
 
-	for i := len(info.Fields) - 1; i >= 0; i-- {
+	for i := 0; i < len(info.Fields); i++ {
 		f := info.Fields[i]
 		fieldPtr := unsafe.Pointer(uintptr(uptr) + uintptr(f.Offset))
-		fieldSize := uint32(size) - f.Offset
+		var fieldSize uint32
+		if i == len(info.Fields)-1 {
+			fieldSize = uint32(size) - f.Offset
+		} else {
+			fieldSize = info.Fields[i+1].Offset - f.Offset
+		}
 		d, err := compress.GetDecompress(br, fieldPtr, fieldSize, f.CompressionVersion)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error decompressing struct field: %w", err)
@@ -144,9 +154,8 @@ func NewStructDecompress(br *compress.BitReader, info *ItemSection, typ reflect.
 			offset: uintptr(f.Offset),
 			d:      d,
 		}
-		size -= uintptr(fieldSize)
 	}
-	sd.offset += typ.Size()
+	sd.offset += size
 
 	return sd, uptr, nil
 }

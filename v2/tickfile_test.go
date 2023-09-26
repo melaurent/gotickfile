@@ -47,29 +47,6 @@ var fs = kafero.NewMemMapFs()
 
 var goldenFs = kafero.NewOsFs()
 
-func TestBug(t *testing.T) {
-	file, err := goldenFs.Open("test-fixtures/bug.tick")
-	if err != nil {
-		t.Fatalf("error opening file: %v", err)
-	}
-	tf, err := OpenRead(file, reflect.TypeOf(RawTradeDelta{}))
-	if err != nil {
-		t.Fatalf("error opening tickfile: %v", err)
-	}
-
-	reader, err := tf.GetTickReader()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tick, deltas, err := reader.Next()
-	for err == nil {
-		fmt.Println(tick, deltas)
-		tick, deltas, err = reader.Next()
-	}
-	fmt.Println(err)
-}
-
 func TestBug2(t *testing.T) {
 	file, err := fs.Create("test.tick")
 	if err != nil {
