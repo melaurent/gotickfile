@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+	"time"
 	"unsafe"
 )
 
@@ -11,9 +12,10 @@ func TestUInt64Compress(t *testing.T) {
 	ts1 := []uint64{0, 10, 15, 20, 25, 30, 35, 40, 40, 40, 41}
 	buf := NewBBuffer(nil, 0)
 
-	c := NewUInt64GorillaCompress(ts1[0], buf)
+	c := NewUInt64GorillaCompress(buf, ts1[0])
 	for i := 1; i < len(ts1); i++ {
-		c.Compress(ts1[i], buf)
+		v := ts1[i]
+		c.Compress(buf, unsafe.Pointer(&v))
 	}
 	fmt.Println(len(buf.b))
 	reader := NewBitReader(buf)
@@ -42,7 +44,8 @@ func TestUInt64Compress(t *testing.T) {
 	c = dc.ToCompress().(*UInt64GorillaCompress)
 
 	for i := 0; i < len(ts2); i++ {
-		c.Compress(ts2[i], buf)
+		v := ts2[i]
+		c.Compress(buf, unsafe.Pointer(&v))
 	}
 
 	reader = NewBitReader(buf)
@@ -75,17 +78,20 @@ func TestUInt64Compress(t *testing.T) {
 
 func TestUInt64CompressFuzz(t *testing.T) {
 	N := 40000000
-	var tmp uint64 = 100000
+	var tmp = 100.
 	ts := make([]uint64, N)
 	for i := 0; i < N; i++ {
-		tmp += uint64(rand.Int31n(10000))
-		ts[i] = tmp
+		tmp += rand.Float64()
+		ts[i] = uint64(tmp)
 	}
 	buf := NewBBuffer(nil, 0)
-	c := NewUInt64GorillaCompress(ts[0], buf)
+	start := time.Now()
+	c := NewUInt64GorillaCompress(buf, ts[0])
 	for i := 1; i < len(ts); i++ {
-		c.Compress(ts[i], buf)
+		v := ts[i]
+		c.Compress(buf, unsafe.Pointer(&v))
 	}
+	fmt.Println(time.Since(start))
 
 	fmt.Println(float64(len(buf.b)) / (8. * 40000000.))
 	reader := NewBitReader(buf)
@@ -98,6 +104,7 @@ func TestUInt64CompressFuzz(t *testing.T) {
 	if val != ts[0] {
 		t.Fatalf("different first tick")
 	}
+	start = time.Now()
 	for i := 1; i < len(ts); i++ {
 		err = dc.Decompress(reader, unsafe.Pointer(&val))
 		if err != nil {
@@ -107,4 +114,8 @@ func TestUInt64CompressFuzz(t *testing.T) {
 			t.Fatalf("different tick")
 		}
 	}
+
+	bytes := N * 8
+	gigaBytes := float64(bytes) / float64(1e9)
+	fmt.Println(time.Since(start), gigaBytes)
 }

@@ -10,7 +10,7 @@ type TickCompress struct {
 	lastDelta int64
 }
 
-func NewTickCompress(start uint64, bw *BBuffer) *TickCompress {
+func NewTickCompress(bw *BBuffer, start uint64) *TickCompress {
 	bw.WriteBits(start, 64)
 	return &TickCompress{
 		lastVal:   start,
@@ -18,7 +18,7 @@ func NewTickCompress(start uint64, bw *BBuffer) *TickCompress {
 	}
 }
 
-func (c *TickCompress) Compress(tick uint64, bw *BBuffer) {
+func (c *TickCompress) Compress(bw *BBuffer, tick uint64) {
 	delta := int64(tick - c.lastVal)
 	dod := delta - c.lastDelta
 	switch {

@@ -15,23 +15,54 @@ func TypeToItemSection(typ reflect.Type) (*ItemSection, error) {
 		fIdx := 0
 		for i := 0; i < typ.NumField(); i++ {
 			dataField := typ.Field(i)
+			compressNone := dataField.Tag.Get("compress") == "none"
 			if dataField.Type.Kind() == reflect.Array {
+				if compressNone {
+					itemField := ItemSectionField{}
+					itemField.Name = dataField.Name
+					itemField.Offset = uint32(dataField.Offset)
+					itemField.Index = uint32(fIdx)
+					itemField.Type = kindToFieldType[dataField.Type.Kind()]
+					itemField.CompressionVersion = compress.NoneCompressType
+					itemSection.Fields = append(itemSection.Fields, itemField)
+					fIdx += 1
+					continue
+				}
 				elem := dataField.Type.Elem()
+				if elem.Kind() == reflect.Uint8 && dataField.Type.Len() == 32 {
+					itemField := ItemSectionField{}
+					itemField.Name = dataField.Name
+					itemField.Offset = uint32(dataField.Offset)
+					itemField.Index = uint32(fIdx)
+					itemField.Type = kindToFieldType[dataField.Type.Kind()]
+					if compressNone {
+						itemField.CompressionVersion = compress.NoneCompressType
+					} else {
+						itemField.CompressionVersion = compress.Bytes32RunLengthByteCompressType
+					}
+					itemSection.Fields = append(itemSection.Fields, itemField)
+					fIdx += 1
+					continue
+				}
 				for f := 0; f < dataField.Type.Len(); f++ {
 					itemField := ItemSectionField{}
 					itemField.Name = dataField.Name + fmt.Sprintf(".%d", f)
 					itemField.Offset = uint32(dataField.Offset + elem.Size()*uintptr(f))
 					itemField.Index = uint32(fIdx)
 					itemField.Type = kindToFieldType[elem.Kind()]
-					switch itemField.Type {
-					case INT8, UINT8:
-						itemField.CompressionVersion = compress.UINT8_GORILLA_COMPRESS
-					case INT32, UINT32, FLOAT32:
-						itemField.CompressionVersion = compress.UINT32_GORILLA_COMPRESS
-					case INT64, UINT64, FLOAT64:
-						itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
-					default:
-						return nil, fmt.Errorf("unsupported field type: %s", elem.Kind().String())
+					if compressNone {
+						itemField.CompressionVersion = compress.NoneCompressType
+					} else {
+						switch itemField.Type {
+						case INT8, UINT8:
+							itemField.CompressionVersion = compress.Uint8GorillaCompressType
+						case INT32, UINT32, FLOAT32:
+							itemField.CompressionVersion = compress.Uint32GorillaCompressType
+						case INT64, UINT64, FLOAT64:
+							itemField.CompressionVersion = compress.Uint64GorillaCompressType
+						default:
+							return nil, fmt.Errorf("unsupported field type: %s", elem.Kind().String())
+						}
 					}
 					itemSection.Fields = append(itemSection.Fields, itemField)
 					fIdx += 1
@@ -42,16 +73,21 @@ func TypeToItemSection(typ reflect.Type) (*ItemSection, error) {
 				itemField.Offset = uint32(dataField.Offset)
 				itemField.Index = uint32(fIdx)
 				itemField.Type = kindToFieldType[dataField.Type.Kind()]
-				switch itemField.Type {
-				case INT8, UINT8:
-					itemField.CompressionVersion = compress.UINT8_GORILLA_COMPRESS
-				case INT32, UINT32, FLOAT32:
-					itemField.CompressionVersion = compress.UINT32_GORILLA_COMPRESS
-				case INT64, UINT64, FLOAT64:
-					itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
-				default:
-					return nil, fmt.Errorf("unsupported field type: %s", dataField.Type.Kind().String())
+				if compressNone {
+					itemField.CompressionVersion = compress.NoneCompressType
+				} else {
+					switch itemField.Type {
+					case INT8, UINT8:
+						itemField.CompressionVersion = compress.Uint8GorillaCompressType
+					case INT32, UINT32, FLOAT32:
+						itemField.CompressionVersion = compress.Uint32GorillaCompressType
+					case INT64, UINT64, FLOAT64:
+						itemField.CompressionVersion = compress.Uint64GorillaCompressType
+					default:
+						return nil, fmt.Errorf("unsupported field type: %s", dataField.Type.Kind().String())
+					}
 				}
+
 				itemSection.Fields = append(itemSection.Fields, itemField)
 				fIdx += 1
 			}
@@ -65,7 +101,7 @@ func TypeToItemSection(typ reflect.Type) (*ItemSection, error) {
 		itemField.Offset = 0
 		itemField.Index = 0
 		itemField.Type = kindToFieldType[typ.Kind()]
-		itemField.CompressionVersion = compress.UINT32_GORILLA_COMPRESS
+		itemField.CompressionVersion = compress.Uint32GorillaCompressType
 		itemSection.Fields = append(itemSection.Fields, itemField)
 
 	case reflect.Uint64, reflect.Int64, reflect.Float64:
@@ -75,7 +111,7 @@ func TypeToItemSection(typ reflect.Type) (*ItemSection, error) {
 		itemField.Offset = 0
 		itemField.Index = 0
 		itemField.Type = kindToFieldType[typ.Kind()]
-		itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
+		itemField.CompressionVersion = compress.Uint64GorillaCompressType
 		itemSection.Fields = append(itemSection.Fields, itemField)
 
 	default:
@@ -114,7 +150,7 @@ func WithBasicType(typ reflect.Type) TickFileConfig {
 		if !ok {
 			panic(fmt.Sprintf("unsupported type: %s", typ.String()))
 		}
-		itemField.CompressionVersion = compress.UINT64_GORILLA_COMPRESS
+		itemField.CompressionVersion = compress.Uint64GorillaCompressType
 		itemSection.Fields = append(itemSection.Fields, itemField)
 		tf.itemSection = &itemSection
 	}

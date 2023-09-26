@@ -16,9 +16,10 @@ type OBDelta struct {
 func TestFloat64Compress(t *testing.T) {
 	ts1 := []float64{0, 10, 15, 20, 25, 30, 35, 40, 40, 40, 41}
 	buf := NewBBuffer(nil, 0)
-	c := NewUInt64GorillaCompress(math.Float64bits(ts1[0]), buf)
+	c := NewUInt64GorillaCompress(buf, math.Float64bits(ts1[0]))
 	for i := 1; i < len(ts1); i++ {
-		c.Compress(math.Float64bits(ts1[i]), buf)
+		b := math.Float64bits(ts1[i])
+		c.Compress(buf, unsafe.Pointer(&b))
 	}
 	fmt.Println(len(buf.b))
 	reader := NewBitReader(buf)
@@ -47,7 +48,8 @@ func TestFloat64Compress(t *testing.T) {
 	c = dc.ToCompress().(*UInt64GorillaCompress)
 
 	for i := 0; i < len(ts2); i++ {
-		c.Compress(ts2[i], buf)
+		t := ts2[i]
+		c.Compress(buf, unsafe.Pointer(&t))
 	}
 
 	reader = NewBitReader(buf)
@@ -87,9 +89,10 @@ func TestFloat64CompressFuzz(t *testing.T) {
 		ts[i] = tmp
 	}
 	buf := NewBBuffer(nil, 0)
-	c := NewUInt64GorillaCompress(math.Float64bits(ts[0]), buf)
+	c := NewUInt64GorillaCompress(buf, math.Float64bits(ts[0]))
 	for i := 1; i < len(ts); i++ {
-		c.Compress(math.Float64bits(ts[i]), buf)
+		v := math.Float64bits(ts[i])
+		c.Compress(buf, unsafe.Pointer(&v))
 	}
 
 	fmt.Println(float64(len(buf.b))/(8.*40000000.), c.bucket1, c.bucket2, c.bucket3)
@@ -117,9 +120,10 @@ func TestFloat64CompressFuzz(t *testing.T) {
 func TestFloat32Compress(t *testing.T) {
 	ts1 := []float32{0, 10, 15, 20, 25, 30, 35, 40, 40, 40, 41}
 	buf := NewBBuffer(nil, 0)
-	c := NewUInt32GorillaCompress(uint64(math.Float32bits(ts1[0])), buf)
+	c := NewUInt32GorillaCompress(buf, uint64(math.Float32bits(ts1[0])))
 	for i := 1; i < len(ts1); i++ {
-		c.Compress(uint64(math.Float32bits(ts1[i])), buf)
+		v := uint64(math.Float32bits(ts1[i]))
+		c.Compress(buf, unsafe.Pointer(&v))
 	}
 	fmt.Println(len(buf.b))
 	reader := NewBitReader(buf)
@@ -148,7 +152,8 @@ func TestFloat32Compress(t *testing.T) {
 	c = dc.ToCompress().(*UInt32GorillaCompress)
 
 	for i := 0; i < len(ts2); i++ {
-		c.Compress(ts2[i], buf)
+		v := ts2[i]
+		c.Compress(buf, unsafe.Pointer(&v))
 	}
 
 	reader = NewBitReader(buf)
@@ -188,9 +193,10 @@ func TestFloat32CompressFuzz(t *testing.T) {
 		ts[i] = tmp
 	}
 	buf := NewBBuffer(nil, 0)
-	c := NewUInt32GorillaCompress(uint64(math.Float32bits(ts[0])), buf)
+	c := NewUInt32GorillaCompress(buf, uint64(math.Float32bits(ts[0])))
 	for i := 1; i < len(ts); i++ {
-		c.Compress(uint64(math.Float32bits(ts[i])), buf)
+		v := uint64(math.Float32bits(ts[i]))
+		c.Compress(buf, unsafe.Pointer(&v))
 	}
 
 	fmt.Println(float64(len(buf.b))/(4.*40000000.), c.bucket1, c.bucket2, c.bucket3)

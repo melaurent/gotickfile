@@ -73,7 +73,7 @@ func (r *CTickReader) Next() (uint64, TickDeltas, error) {
 				return r.tick, delta, err
 			}
 		}
-		r.structC, delta.Pointer, err = NewStructDecompress(r.info, r.typ, r.br)
+		r.structC, delta.Pointer, err = NewStructDecompress(r.br, r.info, r.typ)
 		if err != nil {
 			if err == io.EOF {
 				return r.tick, delta, io.ErrUnexpectedEOF

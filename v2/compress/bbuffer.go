@@ -102,7 +102,7 @@ func (b *BBuffer) WriteByte(byt byte) {
 
 func (b *BBuffer) WriteBits(u uint64, nbits int) {
 
-	u <<= (64 - uint(nbits))
+	u <<= 64 - uint(nbits)
 	for nbits >= 8 {
 		byt := byte(u >> 56)
 		b.WriteByte(byt)
@@ -305,22 +305,62 @@ func (b *BitReader) ReadByte() (byte, error) {
 		b.count = 8
 	}
 	byt := b.buffer.b[b.idx] << (8 - b.count)
+	b.idx += 1
 	if b.count == 8 {
-		b.count = 0
+		// we just read a whole byte, we are done
 		return byt, nil
 	}
 
 	byt2 := byt
-	b.idx += 1
 	if len(b.buffer.b) == b.idx {
 		return 0, io.EOF
 	}
 	byt = b.buffer.b[b.idx]
 
 	byt2 |= byt >> b.count
-	byt <<= (8 - b.count)
+	byt <<= 8 - b.count
 
 	return byt2, nil
+}
+
+func (b *BitReader) ReadBytes(n int) ([]byte, error) {
+	return b.ReadBytesInto(make([]byte, n))
+}
+
+func (b *BitReader) ReadBytesInto(res []byte) ([]byte, error) {
+	if len(b.buffer.b) == b.idx {
+		return nil, io.EOF
+	}
+	if b.count == 0 {
+		b.idx += 1
+		if len(b.buffer.b) == b.idx {
+			return nil, io.EOF
+		}
+		b.count = 8
+	}
+	if b.count == 8 {
+		// It's our lucky day, no bit operation needed
+		for i := 0; i < len(res); i++ {
+			if len(b.buffer.b) == b.idx {
+				return nil, io.EOF
+			}
+			res[i] = b.buffer.b[b.idx]
+			b.idx += 1
+		}
+		return res, nil
+	} else {
+		// Need to do some butchering
+		for i := 0; i < len(res); i++ {
+			if b.idx >= len(b.buffer.b)-1 {
+				return nil, io.EOF
+			}
+			res[i] = b.buffer.b[b.idx] << (8 - b.count)
+			b.idx += 1
+			res[i] |= b.buffer.b[b.idx] >> b.count
+		}
+		// b.count is still correct has we only read full bytes
+		return res, nil
+	}
 }
 
 func (b *BitReader) ReadBits(nbits int) (uint64, error) {

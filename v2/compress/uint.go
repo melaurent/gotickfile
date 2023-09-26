@@ -14,7 +14,7 @@ type UInt64GorillaCompress struct {
 	bucket3  int
 }
 
-func NewUInt64GorillaCompress(val uint64, bw *BBuffer) *UInt64GorillaCompress {
+func NewUInt64GorillaCompress(bw *BBuffer, val uint64) *UInt64GorillaCompress {
 	bw.WriteBits(val, 64)
 	return &UInt64GorillaCompress{
 		lastVal:  val,
@@ -23,7 +23,9 @@ func NewUInt64GorillaCompress(val uint64, bw *BBuffer) *UInt64GorillaCompress {
 	}
 }
 
-func (c *UInt64GorillaCompress) Compress(val uint64, bw *BBuffer) {
+func (c *UInt64GorillaCompress) Compress(bw *BBuffer, vali unsafe.Pointer) {
+	val := *(*uint64)(vali)
+
 	xor := val ^ c.lastVal
 	if xor == 0 {
 		bw.WriteBit(Zero)
@@ -98,17 +100,17 @@ func (d *UInt64GorillaDecompress) Decompress(br *BitReader, ptr unsafe.Pointer) 
 			// reuse leading/trailing zero bits
 			// it.leading, it.trailing = it.leading, it.trailing
 		} else {
-			bits, err := br.ReadBits(5)
+			bts, err := br.ReadBits(5)
 			if err != nil {
 				return err
 			}
-			d.leading = uint8(bits)
+			d.leading = uint8(bts)
 
-			bits, err = br.ReadBits(6)
+			bts, err = br.ReadBits(6)
 			if err != nil {
 				return err
 			}
-			mbits := uint8(bits)
+			mbits := uint8(bts)
 			// 0 significant bits here means we overflowed and we actually need 64; see comment in encoder
 			if mbits == 0 {
 				mbits = 64
@@ -117,11 +119,11 @@ func (d *UInt64GorillaDecompress) Decompress(br *BitReader, ptr unsafe.Pointer) 
 		}
 
 		mbits := int(64 - d.leading - d.trailing)
-		bits, err := br.ReadBits(mbits)
+		bts, err := br.ReadBits(mbits)
 		if err != nil {
 			return err
 		}
-		*val = d.lastVal ^ (bits << d.trailing)
+		*val = d.lastVal ^ (bts << d.trailing)
 		d.lastVal = *val
 	}
 
@@ -145,7 +147,7 @@ type UInt32GorillaCompress struct {
 	bucket3  int
 }
 
-func NewUInt32GorillaCompress(val uint64, bw *BBuffer) *UInt32GorillaCompress {
+func NewUInt32GorillaCompress(bw *BBuffer, val uint64) *UInt32GorillaCompress {
 	bw.WriteBits(val, 32)
 	return &UInt32GorillaCompress{
 		lastVal:  uint32(val),
@@ -154,8 +156,8 @@ func NewUInt32GorillaCompress(val uint64, bw *BBuffer) *UInt32GorillaCompress {
 	}
 }
 
-func (c *UInt32GorillaCompress) Compress(valu uint64, bw *BBuffer) {
-	val := uint32(valu)
+func (c *UInt32GorillaCompress) Compress(bw *BBuffer, vali unsafe.Pointer) {
+	val := uint32(*(*uint64)(vali))
 	xor := val ^ c.lastVal
 	if xor == 0 {
 		bw.WriteBit(Zero)
@@ -230,17 +232,17 @@ func (d *UInt32GorillaDecompress) Decompress(br *BitReader, ptr unsafe.Pointer) 
 			// reuse leading/trailing zero bits
 			// it.leading, it.trailing = it.leading, it.trailing
 		} else {
-			bits, err := br.ReadBits(4)
+			bts, err := br.ReadBits(4)
 			if err != nil {
 				return err
 			}
-			d.leading = uint8(bits)
+			d.leading = uint8(bts)
 
-			bits, err = br.ReadBits(5)
+			bts, err = br.ReadBits(5)
 			if err != nil {
 				return err
 			}
-			mbits := uint8(bits)
+			mbits := uint8(bts)
 			// 0 significant bits here means we overflowed and we actually need 64; see comment in encoder
 			if mbits == 0 {
 				mbits = 32
@@ -249,11 +251,11 @@ func (d *UInt32GorillaDecompress) Decompress(br *BitReader, ptr unsafe.Pointer) 
 		}
 
 		mbits := int(32 - d.leading - d.trailing)
-		bits, err := br.ReadBits(mbits)
+		bts, err := br.ReadBits(mbits)
 		if err != nil {
 			return err
 		}
-		*val = d.lastVal ^ (uint32(bits) << d.trailing)
+		*val = d.lastVal ^ (uint32(bts) << d.trailing)
 		d.lastVal = *val
 	}
 
@@ -277,7 +279,7 @@ type UInt8GorillaCompress struct {
 	bucket3  int
 }
 
-func NewUInt8GorillaCompress(val uint64, bw *BBuffer) *UInt8GorillaCompress {
+func NewUInt8GorillaCompress(bw *BBuffer, val uint64) *UInt8GorillaCompress {
 	bw.WriteBits(val, 8)
 	return &UInt8GorillaCompress{
 		lastVal:  uint8(val),
@@ -286,8 +288,8 @@ func NewUInt8GorillaCompress(val uint64, bw *BBuffer) *UInt8GorillaCompress {
 	}
 }
 
-func (c *UInt8GorillaCompress) Compress(valu uint64, bw *BBuffer) {
-	val := uint8(valu)
+func (c *UInt8GorillaCompress) Compress(bw *BBuffer, vali unsafe.Pointer) {
+	val := uint8(*(*uint64)(vali))
 	xor := val ^ c.lastVal
 	if xor == 0 {
 		bw.WriteBit(Zero)
@@ -362,17 +364,17 @@ func (d *UInt8GorillaDecompress) Decompress(br *BitReader, ptr unsafe.Pointer) e
 			// reuse leading/trailing zero bits
 			// it.leading, it.trailing = it.leading, it.trailing
 		} else {
-			bits, err := br.ReadBits(2)
+			bts, err := br.ReadBits(2)
 			if err != nil {
 				return err
 			}
-			d.leading = uint8(bits)
+			d.leading = uint8(bts)
 
-			bits, err = br.ReadBits(3)
+			bts, err = br.ReadBits(3)
 			if err != nil {
 				return err
 			}
-			mbits := uint8(bits)
+			mbits := uint8(bts)
 			// 0 significant bits here means we overflowed and we actually need 64; see comment in encoder
 			if mbits == 0 {
 				mbits = 8
@@ -381,11 +383,11 @@ func (d *UInt8GorillaDecompress) Decompress(br *BitReader, ptr unsafe.Pointer) e
 		}
 
 		mbits := int(8 - d.leading - d.trailing)
-		bits, err := br.ReadBits(mbits)
+		bts, err := br.ReadBits(mbits)
 		if err != nil {
 			return err
 		}
-		*val = d.lastVal ^ (uint8(bits) << d.trailing)
+		*val = d.lastVal ^ (uint8(bts) << d.trailing)
 		d.lastVal = *val
 	}
 

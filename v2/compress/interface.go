@@ -3,7 +3,7 @@ package compress
 import "unsafe"
 
 type Compress interface {
-	Compress(uint64, *BBuffer)
+	Compress(*BBuffer, unsafe.Pointer)
 }
 
 type Decompress interface {
@@ -12,32 +12,47 @@ type Decompress interface {
 }
 
 const (
-	UINT32_GORILLA_COMPRESS uint8 = 0
-	UINT64_GORILLA_COMPRESS uint8 = 1
-	UINT8_GORILLA_COMPRESS  uint8 = 2
+	Uint32GorillaCompressType         uint8 = 0
+	Uint64GorillaCompressType         uint8 = 1
+	Uint8GorillaCompressType          uint8 = 2
+	Bytes32RunLengthByteCompressType  uint8 = 3
+	Bytes256RunLengthByteCompressType uint8 = 4
+	NoneCompressType                  uint8 = 5 // Cannot change, legacy..
 )
 
-func GetCompress(val uint64, bw *BBuffer, version uint8) Compress {
+func GetCompress(bw *BBuffer, val unsafe.Pointer, size uint32, version uint8) Compress {
 	switch version {
-	case UINT8_GORILLA_COMPRESS:
-		return NewUInt8GorillaCompress(val, bw)
-	case UINT32_GORILLA_COMPRESS:
-		return NewUInt32GorillaCompress(val, bw)
-	case UINT64_GORILLA_COMPRESS:
-		return NewUInt64GorillaCompress(val, bw)
+	case NoneCompressType:
+		return NewNoneCompress(bw, val, size)
+	case Uint8GorillaCompressType:
+		return NewUInt8GorillaCompress(bw, *(*uint64)(val))
+	case Uint32GorillaCompressType:
+		return NewUInt32GorillaCompress(bw, *(*uint64)(val))
+	case Uint64GorillaCompressType:
+		return NewUInt64GorillaCompress(bw, *(*uint64)(val))
+	case Bytes32RunLengthByteCompressType:
+		return NewBytes32RunLengthByteCompress(bw, *(*[32]byte)(val))
+	case Bytes256RunLengthByteCompressType:
+		return NewBytes256RunLengthByteCompress(bw, *(*[256]byte)(val))
 	default:
 		return nil
 	}
 }
 
-func GetDecompress(br *BitReader, ptr unsafe.Pointer, version uint8) (Decompress, error) {
+func GetDecompress(br *BitReader, ptr unsafe.Pointer, size uint32, version uint8) (Decompress, error) {
 	switch version {
-	case UINT8_GORILLA_COMPRESS:
+	case NoneCompressType:
+		return NewNoneDecompress(br, ptr, size)
+	case Uint8GorillaCompressType:
 		return NewUInt8GorillaDecompress(br, ptr)
-	case UINT32_GORILLA_COMPRESS:
+	case Uint32GorillaCompressType:
 		return NewUInt32GorillaDecompress(br, ptr)
-	case UINT64_GORILLA_COMPRESS:
+	case Uint64GorillaCompressType:
 		return NewUInt64GorillaDecompress(br, ptr)
+	case Bytes32RunLengthByteCompressType:
+		return NewBytes32RunLengthByteDecompress(br, ptr)
+	case Bytes256RunLengthByteCompressType:
+		return NewBytes256RunLengthByteDecompress(br, ptr)
 	default:
 		return nil, nil
 	}

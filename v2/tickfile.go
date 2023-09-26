@@ -223,7 +223,7 @@ func OpenWrite(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 			return nil, err
 		}
 		// Read to the end
-		w, lastTick, err := CTickWriterFromBlock(tf.itemSection, tf.dataType, tf.block)
+		w, lastTick, err := CTickWriterFromBlock(tf.block, tf.itemSection, tf.dataType)
 		if err != nil {
 			return nil, fmt.Errorf("error loading writer from block: %w", err)
 		}
@@ -303,7 +303,7 @@ func (tf *TickFile) Write(tick uint64, val TickDeltas) error {
 	ptr := val.Pointer
 	if tf.writer == nil {
 		tf.block.Lock()
-		tf.writer = NewCTickWriter(tf.itemSection, tick, ptr, tf.block)
+		tf.writer = NewCTickWriter(tf.block, tf.itemSection, tick, ptr)
 		tf.block.Unlock()
 		count -= 1
 		if count > 0 {
@@ -313,7 +313,7 @@ func (tf *TickFile) Write(tick uint64, val TickDeltas) error {
 
 	tf.block.Lock()
 	for i := 0; i < count; i++ {
-		tf.writer.Write(tick, ptr, tf.block)
+		tf.writer.Write(tf.block, tick, ptr)
 		if i < count-1 {
 			ptr = unsafe.Pointer(uintptr(ptr) + size)
 		}
