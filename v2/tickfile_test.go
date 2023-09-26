@@ -326,6 +326,7 @@ func TestOpenWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	if tick != 0 || *(*Data)(deltas.Pointer) != data1 {
+		fmt.Println(tick, *(*Data)(deltas.Pointer), data1)
 		t.Fatalf("got a different read than expected")
 	}
 }

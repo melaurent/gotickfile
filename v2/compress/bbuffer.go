@@ -305,13 +305,13 @@ func (b *BitReader) ReadByte() (byte, error) {
 		b.count = 8
 	}
 	byt := b.buffer.b[b.idx] << (8 - b.count)
-	b.idx += 1
 	if b.count == 8 {
-		// we just read a whole byte, we are done
+		b.count = 0
 		return byt, nil
 	}
 
 	byt2 := byt
+	b.idx += 1
 	if len(b.buffer.b) == b.idx {
 		return 0, io.EOF
 	}

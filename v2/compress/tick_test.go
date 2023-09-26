@@ -10,9 +10,9 @@ import (
 func TestCompress(t *testing.T) {
 	ts1 := []uint64{0, 10, 15, 20, 25, 30, 35, 40, 40, 40, 41}
 	buf := NewBBuffer(nil, 0)
-	c := NewTickCompress(ts1[0], buf)
+	c := NewTickCompress(buf, ts1[0])
 	for i := 1; i < len(ts1); i++ {
-		c.Compress(ts1[i], buf)
+		c.Compress(buf, ts1[i])
 	}
 	c.Close(buf)
 	reader := NewBitReader(buf)
@@ -48,7 +48,7 @@ func TestCompress(t *testing.T) {
 	}
 
 	for i := 0; i < len(ts2); i++ {
-		c.Compress(ts2[i], buf)
+		c.Compress(buf, ts2[i])
 	}
 	c.Close(buf)
 
@@ -93,9 +93,9 @@ func TestCompressFuzz(t *testing.T) {
 		ts[i] = tmp
 	}
 	buf := NewBBuffer(nil, 0)
-	c := NewTickCompress(ts[0], buf)
+	c := NewTickCompress(buf, ts[0])
 	for i := 1; i < len(ts); i++ {
-		c.Compress(ts[i], buf)
+		c.Compress(buf, ts[i])
 
 		reader := NewBitReader(buf)
 
@@ -134,9 +134,9 @@ func TestCompressChunkFuzz(t *testing.T) {
 
 	buf2 := NewBBuffer(nil, 0)
 	writer := NewChunkWriter(buf2)
-	c := NewTickCompress(ts[0], buf)
+	c := NewTickCompress(buf, ts[0])
 	for i := 1; i < len(ts); i++ {
-		c.Compress(ts[i], buf)
+		c.Compress(buf, ts[i])
 
 		chunk := reader.ReadChunk()
 		writer.WriteChunk(chunk)
