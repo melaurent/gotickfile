@@ -66,12 +66,15 @@ func TestBug2(t *testing.T) {
 		t.Fatalf("error creating tickfile: %v", err)
 	}
 
+	d1 := data1
+	d2 := data2
+
 	val1 := TickDeltas{
-		Pointer: unsafe.Pointer(&data1),
+		Pointer: unsafe.Pointer(&d1),
 		Len:     1,
 	}
 	val2 := TickDeltas{
-		Pointer: unsafe.Pointer(&data2),
+		Pointer: unsafe.Pointer(&d2),
 		Len:     1,
 	}
 
@@ -82,7 +85,7 @@ func TestBug2(t *testing.T) {
 		}
 		if i%20 == 0 {
 			ts += uint64(rand.Intn(51000))
-			data1.Prib = uint64(rand.Intn(12919))
+			d1.Prib = uint64(rand.Intn(12919))
 			err = tf.Write(ts, val1)
 			if err != nil {
 				t.Fatalf("error writing data to tickfile: %v", err)
@@ -282,6 +285,10 @@ func TestBasicKind(t *testing.T) {
 	if tick != 0 || *(*float64)(deltas.Pointer) != 0.8 {
 		t.Fatalf("got a different reading")
 	}
+}
+
+func TestWriteGold(t *testing.T) {
+
 }
 
 func TestOpenWrite(t *testing.T) {
