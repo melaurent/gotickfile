@@ -21,6 +21,8 @@ import (
 
 var nativeEndian binary.ByteOrder
 
+var ErrCorruptedBlock = fmt.Errorf("corrupted block")
+
 func init() {
 	buf := [2]byte{}
 	*(*uint16)(unsafe.Pointer(&buf[0])) = uint16(0xABCD)
@@ -264,7 +266,8 @@ func blockToBuffer(block []byte) (*compress.BBuffer, error) {
 		count += 1
 	}
 	if v == 0 {
-		return nil, fmt.Errorf("no EOF found in block")
+		buf := compress.NewBBuffer(block, 0)
+		return buf, ErrCorruptedBlock
 	} else {
 		buf := compress.NewBBuffer(block, count)
 		return buf, nil
@@ -360,34 +363,40 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 	} else {
 		// Create buffer from block
 		tf.block, err = blockToBuffer(block)
+		corruped := false
 		if err != nil {
-			return nil, err
+			if err != ErrCorruptedBlock {
+				return nil, err
+			} else {
+				corruped = true
+			}
 		}
 		// Open block
-		if err := tf.block.Rewind(5); err != nil {
-			return nil, err
-		}
-		tr, err := NewCTickReader(tf.itemSection, tf.dataType, compress.NewBitReader(tf.block))
+		tf.block.Rewind(5)
+		br := compress.NewBitReader(tf.block)
+		tr, err := NewCTickReader(tf.itemSection, tf.dataType, br)
 		if err != nil {
 			return nil, fmt.Errorf("error getting tick reader: %w", err)
 		}
 		err = nil
 		var tick uint64 = 0
-		//var delta TickDeltas
-		type RawTradeDelta struct {
-			Part1       uint64
-			RawQuantity uint64
-			ID          uint64
-			AggregateID uint64
-		}
+		var state compress.BitReaderState
 		for err == nil {
+			// save bit reader state before
+			state = br.State()
 			tick, _, err = tr.Next()
-			//fmt.Println(tick, (*RawTradeDelta)(delta.Pointer))
 		}
+
 		if err == io.EOF {
 			tf.lastTick = tick
-		} else {
-			return nil, err
+		} else if err == io.ErrUnexpectedEOF {
+			if !corruped {
+				return nil, err
+			} else {
+				// Rewind to state before read error
+				tf.block.RewindTo(state)
+				tf.lastTick = tick
+			}
 		}
 	}
 
@@ -397,7 +406,6 @@ func OpenRead(file kafero.File, dataType reflect.Type) (*TickFile, error) {
 }
 
 func OpenHeader(file kafero.File) (*TickFile, error) {
-
 	tf := &TickFile{
 		file: file,
 	}

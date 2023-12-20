@@ -5,6 +5,10 @@ import (
 	"io"
 )
 
+func Close(bw *BBuffer) {
+	bw.WriteBits(0x1f, 5)
+}
+
 type TickCompress struct {
 	lastVal   uint64
 	lastDelta int64
@@ -43,7 +47,7 @@ func (c *TickCompress) Compress(bw *BBuffer, tick uint64) {
 
 func (c *TickCompress) Open(bw *BBuffer) error {
 	// Rewind 5 bits
-	_ = bw.Rewind(5)
+	bw.Rewind(5)
 	return nil
 }
 

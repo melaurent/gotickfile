@@ -1,6 +1,7 @@
 package gotickfile
 
 import (
+	"fmt"
 	"github.com/melaurent/gotickfile/v2/compress"
 	"io"
 	"reflect"
@@ -68,6 +69,7 @@ func (r *CTickReader) Next() (uint64, TickDeltas, error) {
 		r.tickC, r.tick, err = compress.NewTickDecompress(r.br)
 		if err != nil {
 			if err == io.EOF {
+				fmt.Println("Unexpected EOF reading tick")
 				return r.tick, delta, io.ErrUnexpectedEOF
 			} else {
 				return r.tick, delta, err
@@ -76,6 +78,7 @@ func (r *CTickReader) Next() (uint64, TickDeltas, error) {
 		r.structC, delta.Pointer, err = NewStructDecompress(r.br, r.info, r.typ)
 		if err != nil {
 			if err == io.EOF {
+				fmt.Println("Unexpected EOF reading struct")
 				return r.tick, delta, io.ErrUnexpectedEOF
 			} else {
 				return r.tick, delta, err
@@ -135,6 +138,7 @@ func (r *CTickReader) Next() (uint64, TickDeltas, error) {
 			r.nextTick, err = r.tickC.Decompress(r.br)
 			if err != nil {
 				if err == io.EOF {
+					fmt.Println("Unexpected EOF reading tick")
 					return r.tick, delta, io.ErrUnexpectedEOF
 				} else {
 					return r.tick, delta, err
@@ -148,6 +152,7 @@ func (r *CTickReader) Next() (uint64, TickDeltas, error) {
 			delta.Pointer, err = r.structC.Decompress(r.br)
 			if err != nil {
 				if err == io.EOF {
+					fmt.Println(r.nextTick, "Unexpected EOF reading struct")
 					return r.tick, delta, io.ErrUnexpectedEOF
 				} else {
 					return r.tick, delta, err

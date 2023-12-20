@@ -2,8 +2,10 @@ package gotickfile
 
 import (
 	"fmt"
+	"github.com/klauspost/compress/zstd"
 	gotickfilev1 "github.com/melaurent/gotickfile"
 	"github.com/melaurent/kafero"
+	"github.com/melaurent/kafero/zstfs"
 	"io"
 	"math/rand"
 	"reflect"
@@ -43,9 +45,41 @@ type RawTradeDelta struct {
 	AggregateID uint64
 }
 
+type RawLevel struct {
+	Price  uint64
+	Volume uint64
+}
+
 var fs = kafero.NewMemMapFs()
 
 var goldenFs = kafero.NewOsFs()
+
+func TestCorrupted(t *testing.T) {
+	tmp := zstfs.NewFs(goldenFs, zstd.SpeedFastest)
+	goldenFile, err := tmp.Open("test-fixtures/bug.tick")
+	if err != nil {
+		t.Fatalf("error opening file: %v", err)
+	}
+	tf, err := OpenRead(goldenFile, reflect.TypeOf(RawLevel{}))
+	if err != nil {
+		t.Fatalf("error opening golden tickfile: %v", err)
+	}
+
+	reader, err := tf.GetTickReader()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tick, _, err := reader.Next()
+	for err == nil {
+		tick, _, err = reader.Next()
+	}
+	fmt.Println(tick, err)
+	if err := tf.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+}
 
 func TestBug2(t *testing.T) {
 	file, err := fs.Create("test.tick")
@@ -117,6 +151,7 @@ func TestBug2(t *testing.T) {
 			t.Fatalf("different last tick: %d %d", tf.LastTick(), ts)
 		}
 	}
+
 	if err := tf.Close(); err != nil {
 		t.Fatal(err)
 	}

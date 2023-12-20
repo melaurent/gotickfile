@@ -117,10 +117,10 @@ func (b *BBuffer) WriteBits(u uint64, nbits int) {
 	}
 }
 
-func (b *BBuffer) Rewind(offset int) error {
+func (b *BBuffer) Rewind(offset int) {
 	for offset >= int(8-b.count) {
 		offset -= int(8 - b.count)
-		// We have b.count bit written in the last byte
+		// We have 8 - b.count bit written in the last byte
 		// what we have to do is remove last byte
 		b.b = b.b[:len(b.b)-1]
 		b.count = 0
@@ -130,7 +130,18 @@ func (b *BBuffer) Rewind(offset int) error {
 	b.b[i] = b.b[i] & (0xFF << ((b.count) + uint8(offset)))
 	b.count += uint8(offset)
 
-	return nil
+	return
+}
+
+func (b *BBuffer) RewindTo(state BitReaderState) {
+	// Rewind so b.count is the same as state.count, and b.idx is state.idx
+	// Bit Rader state count is what is left to read in the current byte.
+	// Bit writer state count is what is left to write in the current byte.
+	curr := (len(b.b)-1)*8 + int(8-b.count)
+	target := state.idx*8 + int(8-state.count)
+	if curr > target {
+		b.Rewind(curr - target)
+	}
 }
 
 type ChunkReader struct {
